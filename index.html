@@ -501,7 +501,7 @@ function loadAdaptivePreference() {
   }
 }
 
-const state = {
+const activeShotOscillators = new Set(); let currentReferenceNote = null; let previousReferenceNote = null; const state = {
   phase: "idle",
   targetNote: null,
   noteFreq: ALL_NOTES[6].freq,
@@ -631,7 +631,7 @@ function getAudio() {
   const targetOsc = ctx.createOscillator();
   const targetGain = ctx.createGain();
 
-  userOsc.type = "sine";
+  userOsc.type = "triangle";
   userOsc.frequency.value = state.noteFreq;
   userGain.gain.value = 0;
   userOsc.connect(userGain);
@@ -663,7 +663,7 @@ function playShot(freq, vol, dur, type = "sine", when = 0) {
   osc.connect(gain);
   gain.connect(ctx.destination);
   osc.start(t);
-  osc.stop(t + dur + 0.02);
+  osc.stop(t + dur + 0.02); activeShotOscillators.add(osc); osc.addEventListener("ended", () => activeShotOscillators.delete(osc), { once: true });
 }
 
 function playSnapSound(freq) {
@@ -698,7 +698,7 @@ function startQuestion() {
   const audio = getAudio();
   const pool = getActiveNotes();
   state.promptTimers.forEach((timer) => window.clearTimeout(timer));
-  state.promptTimers = [];
+  state.promptTimers = []; for (const shot of activeShotOscillators) { try { shot.stop(); } catch {} } activeShotOscillators.clear();
   let choices = pool.filter((item) => item.name !== state.previousTargetName);
   if (choices.length === 0) choices = pool;
   const weakNotes = state.adaptiveEnabled ? getWeakNotes(pool) : [];
@@ -708,8 +708,8 @@ function startQuestion() {
     ? randomItem(weakChoices.length > 0 ? weakChoices : weakNotes)
     : randomItem(choices);
   state.previousTargetName = note.name;
-  const referenceChoices = pool.filter((item) => item.name !== note.name);
-  const referenceNote = randomItem(referenceChoices.length ? referenceChoices : pool);
+  const referenceNote = currentReferenceNote;
+  void 0;
 
   state.phase = "playing";
   state.targetNote = note;
@@ -736,13 +736,13 @@ function startQuestion() {
   audio.userGain.gain.setValueAtTime(0, audio.ctx.currentTime);
   // Give each tone a clear attack and enough time to hear its pitch. Leave a
   // short silent gap so the reference and target never overlap.
-  playShot(referenceNote.freq, 0.3, 0.75, "triangle");
+  playShot(referenceNote.freq, 0.55, 0.75, "sine");
   state.promptTimers.push(window.setTimeout(() => {
     if (state.phase !== "playing") return;
     state.promptPhase = "target";
     render();
-    playShot(note.freq, 0.3, 0.75, "triangle");
-  }, 950));
+    playShot(note.freq, 0.55, 0.75, "triangle");
+  }, 1300));
   state.promptTimers.push(window.setTimeout(() => {
     if (state.phase !== "playing") return;
     state.promptPhase = "adjust";
@@ -752,9 +752,9 @@ function startQuestion() {
     userOsc.frequency.setValueAtTime(state.noteFreq, ctx.currentTime);
     userGain.gain.cancelScheduledValues(ctx.currentTime);
     userGain.gain.setValueAtTime(0, ctx.currentTime);
-    userGain.gain.linearRampToValueAtTime(0.3, ctx.currentTime + 0.08);
+    userGain.gain.linearRampToValueAtTime(0.3, ctx.currentTime + 0.08); state.roundStartedAt = performance.now();
     render();
-  }, 1800));
+  }, 2150));
   render();
 }
 
@@ -823,7 +823,7 @@ function startGame() {
   state.streak = 0;
   state.correctCount = 0;
   state.questionNumber = 0;
-  state.previousTargetName = null;
+  state.previousTargetName = null; const referencePool = getActiveNotes(); const referenceOptions = referencePool.filter((note) => note.name !== (previousReferenceNote && previousReferenceNote.name)); currentReferenceNote = randomItem(referenceOptions.length ? referenceOptions : referencePool); previousReferenceNote = currentReferenceNote;
   nextQuestion();
 }
 

@@ -395,7 +395,6 @@ const activeShotOscillators = new Set(); let currentReferenceNote = null; let pr
   streak: 0,
   questionNumber: 0,
   correctCount: 0,
-  referenceTargetOnly: !EXPERIMENT.sliderSound,
   adaptiveEnabled: EXPERIMENT.feedback,
   correctAnim: false,
   audio: null,
@@ -644,6 +643,13 @@ function getAudio() {
   return state.audio;
 }
 
+function enforceSilentSlider() {
+  if (EXPERIMENT.sliderSound || !state.audio) return;
+  const { ctx, userGain } = state.audio;
+  userGain.gain.cancelScheduledValues(ctx.currentTime);
+  userGain.gain.setValueAtTime(0, ctx.currentTime);
+}
+
 function playShot(freq, vol, dur, type = "sine", when = 0) {
   const { ctx } = getAudio();
   const t = ctx.currentTime + when;
@@ -788,10 +794,10 @@ function startQuestion() {
     userPresenceOsc.frequency.setValueAtTime(state.noteFreq * 3, ctx.currentTime);
     userGain.gain.cancelScheduledValues(ctx.currentTime);
     userGain.gain.setValueAtTime(0, ctx.currentTime);
-    if (state.referenceTargetOnly) {
-      userGain.gain.setValueAtTime(0, ctx.currentTime);
-    } else {
+    if (EXPERIMENT.sliderSound) {
       userGain.gain.linearRampToValueAtTime(0.3, ctx.currentTime + 0.08);
+    } else {
+      enforceSilentSlider();
     }
     state.roundStartedAt = performance.now();
     render();
@@ -1269,6 +1275,7 @@ function renderFeedback() {
 function onPointerDown(event) {
   if (state.phase !== "playing" || state.promptPhase !== "adjust") return;
 
+  enforceSilentSlider();
   event.preventDefault();
   el.score.setPointerCapture(event.pointerId);
   const startFreq = state.snappedNote ? state.snappedNote.freq : state.noteFreq;
@@ -1283,6 +1290,7 @@ function onPointerMove(event) {
 
   event.preventDefault();
   const { ctx, userOsc, userHarmonicOsc, userPresenceOsc } = getAudio();
+  enforceSilentSlider();
   const dy = state.drag.startY - event.clientY;
   const renderedHeight = el.score.getBoundingClientRect().height || SVG_H;
   const dyInSvgUnits = dy * (SVG_H / renderedHeight);

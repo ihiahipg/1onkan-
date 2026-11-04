@@ -211,83 +211,6 @@ h1 {
 .answer-compare p { margin: 0 0 9px; color: #aaa; font-size: 11px; line-height: 1.5; }
 .answer-compare .button { width: 100%; min-height: 42px; padding: 10px; font-size: 13px; }
 
-.settings {
-  width: 100%;
-  max-width: 360px;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  padding: 12px 18px;
-  border: 1px solid #2a2a2a;
-  border-radius: 12px;
-  background: #161616;
-}
-
-.check-row {
-  display: flex;
-  align-items: flex-start;
-  gap: 12px;
-  cursor: pointer;
-}
-
-.check-row input {
-  position: absolute;
-  opacity: 0;
-  pointer-events: none;
-}
-
-.fake-check {
-  width: 18px;
-  height: 18px;
-  flex: 0 0 auto;
-  display: grid;
-  place-items: center;
-  margin-top: 2px;
-  border: 1.5px solid #444444;
-  border-radius: 4px;
-  transition: background 0.15s, border-color 0.15s;
-}
-
-.fake-check::after {
-  content: "";
-  width: 8px;
-  height: 4px;
-  border-left: 2px solid #0a0a0a;
-  border-bottom: 2px solid #0a0a0a;
-  transform: translateY(-1px) rotate(-45deg);
-  opacity: 0;
-}
-
-.check-row input:checked + .fake-check {
-  border-color: #eeeeee;
-  background: #eeeeee;
-}
-
-.check-row input:checked + .fake-check::after {
-  opacity: 1;
-}
-
-.check-title,
-.check-sub {
-  display: block;
-}
-
-.check-title {
-  font-size: 13px;
-  font-weight: 500;
-  color: #dddddd;
-}
-
-.check-sub {
-  margin-top: 2px;
-  font-size: 11px;
-  color: #666666;
-}
-
-.divider {
-  border-top: 1px solid #2a2a2a;
-}
-
 .note {
   margin: 10px 0 0;
   text-align: center;
@@ -334,10 +257,6 @@ h1 {
     width: min(360px, calc(100vw - 48px), calc((100dvh - 268px) * 0.913));
   }
 
-  .settings {
-    gap: 10px;
-    padding-block: 10px;
-  }
 }
 
 @media (max-height: 640px) {
@@ -345,9 +264,6 @@ h1 {
     width: min(320px, calc(100vw - 48px), calc((100dvh - 230px) * 0.913));
   }
 
-  .check-sub {
-    display: none;
-  }
 }
 
     </style>
@@ -415,50 +331,6 @@ h1 {
         <button id="mainButton" class="button button-primary" type="button">スタート</button>
       </div>
 
-      <section class="settings" aria-label="設定">
-        <label class="check-row">
-          <input id="hideDiff" type="checkbox" />
-          <span class="fake-check" aria-hidden="true"></span>
-          <span>
-            <span class="check-title">ズレを表示</span>
-            <span class="check-sub">お題の音との高さの差を表示</span>
-          </span>
-        </label>
-
-        <div class="divider"></div>
-
-        <label class="check-row">
-          <input id="referenceTargetOnly" type="checkbox" />
-          <span class="fake-check" aria-hidden="true"></span>
-          <span>
-            <span class="check-title">基準音とお題の音だけで練習</span>
-            <span class="check-sub">オンにするとスライダー操作中の音を消す</span>
-          </span>
-        </label>
-
-        <div class="divider"></div>
-
-        <label class="check-row">
-          <input id="whiteKeysOnly" type="checkbox" />
-          <span class="fake-check" aria-hidden="true"></span>
-          <span>
-            <span class="check-title">白鍵だけで練習</span>
-            <span class="check-sub">チェックすると次のゲームから黒鍵の音を出題・表示しない</span>
-          </span>
-        </label>
-
-        <div class="divider"></div>
-
-        <label class="check-row">
-          <input id="adaptiveMode" type="checkbox" />
-          <span class="fake-check" aria-hidden="true"></span>
-          <span>
-            <span class="check-title">苦手な音程を多めに出題</span>
-            <span class="check-sub">記録が集まると苦手な音程を約70％で優先</span>
-          </span>
-        </label>
-      </section>
-
       <p class="note">音の高さは周波数の対数スケールに基づいています</p>
     </main>
 
@@ -479,9 +351,15 @@ const STAFF_SPACE = 24;
 const TREBLE_STAFF_LINE_MIDIS = [77, 74, 71, 67, 64];
 const SNAP_CENTS = 32;
 const TOTAL_QUESTIONS = 10;
-const HISTORY_STORAGE_KEY = "pitchTrainerRelativeHistoryV1";
-const ADAPTIVE_STORAGE_KEY = "pitchTrainerAdaptiveEnabledV1";
-const WHITE_KEYS_ONLY_STORAGE_KEY = "pitchTrainerWhiteKeysOnlyV1";
+const GROUP_CONFIG = {
+  A: { feedback: true, sliderSound: true },
+  B: { feedback: false, sliderSound: true },
+  C: { feedback: true, sliderSound: false },
+  D: { feedback: false, sliderSound: false },
+};
+const GROUP = (document.documentElement.dataset.group || "A").toUpperCase();
+const EXPERIMENT = GROUP_CONFIG[GROUP] || GROUP_CONFIG.A;
+const HISTORY_STORAGE_KEY = `pitchTrainerRelativeHistoryV1-${GROUP}`;
 const ADAPTIVE_MIN_TOTAL = 20;
 const ADAPTIVE_MIN_PER_NOTE = 3;
 const WEAK_NOTE_CHANCE = 0.7;
@@ -506,23 +384,6 @@ function loadHistory() {
 
 const loadedHistory = loadHistory();
 
-function loadAdaptivePreference() {
-  try {
-    const stored = window.localStorage.getItem(ADAPTIVE_STORAGE_KEY);
-    return stored === null ? true : stored === "true";
-  } catch {
-    return true;
-  }
-}
-
-function loadWhiteKeysOnlyPreference() {
-  try {
-    return window.localStorage.getItem(WHITE_KEYS_ONLY_STORAGE_KEY) === "true";
-  } catch {
-    return false;
-  }
-}
-
 const activeShotOscillators = new Set(); let currentReferenceNote = null; let previousReferenceFreq = null; const state = {
   phase: "idle",
   targetNote: null,
@@ -534,10 +395,8 @@ const activeShotOscillators = new Set(); let currentReferenceNote = null; let pr
   streak: 0,
   questionNumber: 0,
   correctCount: 0,
-  hideDiff: true,
-  referenceTargetOnly: false,
-  adaptiveEnabled: loadAdaptivePreference(),
-  whiteKeysOnly: loadWhiteKeysOnlyPreference(),
+  referenceTargetOnly: !EXPERIMENT.sliderSound,
+  adaptiveEnabled: EXPERIMENT.feedback,
   correctAnim: false,
   audio: null,
   drag: null,
@@ -564,10 +423,6 @@ const el = {
   mainButton: document.querySelector("#mainButton"),
   answerFeedback: document.querySelector("#answerFeedback"),
   replayIncorrectButton: document.querySelector("#replayIncorrectButton"),
-  hideDiff: document.querySelector("#hideDiff"),
-  referenceTargetOnly: document.querySelector("#referenceTargetOnly"),
-  whiteKeysOnly: document.querySelector("#whiteKeysOnly"),
-  adaptiveMode: document.querySelector("#adaptiveMode"),
   feedback: document.querySelector("#feedback"),
   pitchChart: document.querySelector("#pitchChart"),
   feedbackRows: document.querySelector("#feedbackRows"),
@@ -654,7 +509,7 @@ function describeIntervalFromReference(currentFreq, referenceFreq) {
   return `基準音より ${intervalNameForSemitones(semitones)}`;
 }
 
-function makeRelativeNotes(referenceFreq, whiteKeysOnly = state.whiteKeysOnly) {
+function makeRelativeNotes(referenceFreq) {
   const notes = RELATIVE_OFFSETS.map((semitones) => ({
     name: String(semitones),
     label: intervalNameForSemitones(semitones),
@@ -663,7 +518,7 @@ function makeRelativeNotes(referenceFreq, whiteKeysOnly = state.whiteKeysOnly) {
     noteName: frequencyToNoteName(referenceFreq * 2 ** (semitones / 12)),
     isBlack: BLACK_KEY_PITCH_CLASSES.has(((Math.round(69 + 12 * Math.log2(referenceFreq / 440)) + semitones) % 12 + 12) % 12),
   }));
-  return whiteKeysOnly ? notes.filter((note) => !note.isBlack) : notes;
+  return notes;
 }
 
 function getActiveNotes() {
@@ -846,10 +701,6 @@ function playSnapSound(freq) {
   playPitchTone(freq, 0, 0.12, 0.18);
 }
 
-function playSnapEffect() {
-  // A fixed, brief cue confirms a staff-note snap without revealing its pitch.
-  playShot(880, 0.12, 0.07, "sine");
-}
 
 function playCorrectSound(freq) {
   // Frame the target with its lower and upper octave so its pitch is easy to hear.
@@ -907,7 +758,7 @@ function startQuestion() {
   state.recordedThisRound = false;
 
   // Play the reference first, then the target once. The target is silent while
-  // the learner adjusts the pitch; the slider tone can be muted in settings.
+  // The assigned condition controls whether the pitch slider is audible.
   audio.targetGain.gain.cancelScheduledValues(audio.ctx.currentTime);
   audio.targetGain.gain.setValueAtTime(0, audio.ctx.currentTime);
   audio.targetOsc.frequency.setValueAtTime(note.freq, audio.ctx.currentTime);
@@ -1130,7 +981,7 @@ function renderGuides() {
   });
   keyboardNotes.filter((note) => note.isBlack).forEach((note) => {
     const y = staffYForFrequency(note.freq);
-    const active = !state.whiteKeysOnly && note.semitones === currentKey?.semitones;
+    const active = note.semitones === currentKey?.semitones;
     el.score.append(svgElement("rect", {
       // Extend a fraction over the white-key edge so its selection fill and
       // antialiasing cannot peek through along the black-key border.
@@ -1180,7 +1031,7 @@ function renderUserNote() {
   )) {
     addText(group, {
       x: RAIL_X - 18,
-      y: userY - (state.hideDiff ? 0 : 7),
+      y: userY,
       "font-size": 10,
       "font-weight": 500,
       "text-anchor": "end",
@@ -1188,16 +1039,7 @@ function renderUserNote() {
     }, describeIntervalFromReference(state.noteFreq, currentReferenceNote.freq));
   }
 
-  const centDiff = state.targetNote ? Math.round(toCents(state.noteFreq, state.targetNote.freq)) : 0;
-  if (["playing", "correct", "incorrect"].includes(state.phase) && !state.hideDiff && Math.abs(centDiff) > 5) {
-    addText(group, {
-      x: RAIL_X - 18,
-      y: userY + 13,
-      "font-size": 10,
-      "text-anchor": "end",
-      fill: "#777777",
-    }, `お題との差 ${centDiff > 0 ? `+${centDiff}` : centDiff}¢`);
-  }
+
 
   el.score.append(group);
 }
@@ -1211,7 +1053,7 @@ function render() {
   el.trainerCard.classList.toggle("correct", state.correctAnim);
   el.trainerCard.classList.toggle("incorrect", state.phase === "incorrect");
   el.scoreWrap.hidden = state.phase === "complete";
-  const showFeedback = state.phase === "complete" || (state.phase === "idle" && state.history.length > 0);
+  const showFeedback = EXPERIMENT.feedback && (state.phase === "complete" || (state.phase === "idle" && state.history.length > 0));
   el.feedback.hidden = !showFeedback;
   el.statusText.classList.toggle("correct", state.phase === "correct");
   el.statusText.classList.toggle("incorrect", state.phase === "incorrect");
@@ -1249,10 +1091,6 @@ function render() {
   el.streak.textContent = state.phase === "complete"
     ? `正解率 ${Math.round((state.correctCount / TOTAL_QUESTIONS) * 100)}%`
     : `${state.questionNumber} / ${TOTAL_QUESTIONS} 問　・　正解 ${state.correctCount}`;
-  el.hideDiff.checked = !state.hideDiff;
-  el.adaptiveMode.checked = state.adaptiveEnabled;
-  el.whiteKeysOnly.checked = state.whiteKeysOnly;
-  el.whiteKeysOnly.disabled = ["playing", "correct", "incorrect"].includes(state.phase);
   el.storageNote.hidden = !state.storageError;
   el.storageNote.textContent = "保存領域を利用できないため、このプレイの記録を次回に引き継げない可能性があります。";
   if (showFeedback) renderFeedback();
@@ -1382,9 +1220,7 @@ function renderFeedback() {
 
   const intervalNotes = makeRelativeNotes(1);
   const weakNotes = getWeakNotes(intervalNotes);
-  if (!state.adaptiveEnabled) {
-    el.adaptiveInfo.textContent = "苦手な音程の優先出題はオフです。設定でオンにすると、記録が集まった音程を中心に出題します。";
-  } else if (weakNotes.length > 0) {
+  if (weakNotes.length > 0) {
     const focusNames = weakNotes.map((note) => note.label).join("・");
     el.adaptiveInfo.textContent = `苦手な音程を優先して出題中：${focusNames}。苦手音程を約70%、全音程からランダムに約30%出します。`;
   } else {
@@ -1471,11 +1307,7 @@ function onPointerMove(event) {
       state.lastSnap = note.name;
       state.snappedNote = note;
       state.snapFlash = true;
-      if (state.referenceTargetOnly) {
-        playSnapEffect();
-      } else {
-        playSnapSound(note.freq);
-      }
+      if (EXPERIMENT.sliderSound) playSnapSound(note.freq);
       render();
 
       window.setTimeout(() => {
@@ -1527,41 +1359,6 @@ el.mainButton.addEventListener("click", () => {
 });
 el.replayIncorrectButton.addEventListener("click", () => {
   if (state.phase === "incorrect") playIncorrectFeedback();
-});
-el.hideDiff.addEventListener("change", () => {
-  state.hideDiff = !el.hideDiff.checked;
-  render();
-});
-el.referenceTargetOnly.addEventListener("change", () => {
-  state.referenceTargetOnly = el.referenceTargetOnly.checked;
-  if (state.phase === "playing" && state.promptPhase === "adjust" && state.audio) {
-    const { ctx, userGain } = state.audio;
-    userGain.gain.cancelScheduledValues(ctx.currentTime);
-    userGain.gain.setValueAtTime(userGain.gain.value, ctx.currentTime);
-    if (state.referenceTargetOnly) {
-      userGain.gain.setTargetAtTime(0, ctx.currentTime, 0.015);
-    } else {
-      userGain.gain.setTargetAtTime(0.3, ctx.currentTime, 0.025);
-    }
-  }
-});
-el.whiteKeysOnly.addEventListener("change", () => {
-  state.whiteKeysOnly = el.whiteKeysOnly.checked;
-  try {
-    window.localStorage.setItem(WHITE_KEYS_ONLY_STORAGE_KEY, String(state.whiteKeysOnly));
-  } catch {
-    // Retain the selection for the current session when storage is unavailable.
-  }
-  render();
-});
-el.adaptiveMode.addEventListener("change", () => {
-  state.adaptiveEnabled = el.adaptiveMode.checked;
-  try {
-    window.localStorage.setItem(ADAPTIVE_STORAGE_KEY, String(state.adaptiveEnabled));
-  } catch {
-    state.storageError = true;
-  }
-  render();
 });
 el.score.addEventListener("pointerdown", onPointerDown);
 el.score.addEventListener("pointermove", onPointerMove);

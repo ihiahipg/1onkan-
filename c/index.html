@@ -1315,7 +1315,7 @@ function onPointerMove(event) {
       state.lastSnap = note.name;
       state.snappedNote = note;
       state.snapFlash = true;
-      if (EXPERIMENT.sliderSound) playSnapSound(note.freq);
+      playSnapSound(note.freq);
       render();
 
       window.setTimeout(() => {

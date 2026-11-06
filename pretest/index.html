@@ -1,0 +1,1387 @@
+<!doctype html>
+<html lang="ja" data-group="PRE">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>音感トレーニング - スマホ共有版</title>
+    <link rel="icon" href="data:," />
+    <style>
+:root {
+  color-scheme: dark;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  background: #0a0a0a;
+  color: #eeeeee;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  min-height: 100%;
+  margin: 0;
+  overscroll-behavior: contain;
+  -webkit-text-size-adjust: 100%;
+}
+
+button,
+input {
+  font: inherit;
+}
+
+.app-shell {
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  padding: max(12px, env(safe-area-inset-top)) 16px max(12px, env(safe-area-inset-bottom));
+}
+
+.app-header {
+  text-align: center;
+  margin-bottom: 14px;
+}
+
+.eyebrow {
+  margin: 0 0 6px;
+  font-size: 10px;
+  letter-spacing: 6px;
+  color: #555555;
+}
+
+h1 {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 300;
+  letter-spacing: 1px;
+}
+
+.streak {
+  margin: 6px 0 0;
+  min-height: 17px;
+  font-size: 12px;
+  color: #8a8a8a;
+}
+
+.streak[hidden] {
+  display: none;
+}
+
+.trainer-card {
+  width: 100%;
+  max-width: 360px;
+  margin-bottom: 12px;
+  padding: 14px 8px 16px;
+  border: 1px solid #2a2a2a;
+  border-radius: 18px;
+  background: #161616;
+  box-shadow: 0 2px 24px rgba(0, 0, 0, 0.5);
+  transition: box-shadow 0.2s;
+}
+
+.trainer-card.correct {
+  box-shadow: 0 0 0 4px rgba(61, 220, 102, 0.33), 0 2px 32px rgba(61, 220, 102, 0.18);
+}
+
+.trainer-card.incorrect {
+  box-shadow: 0 0 0 4px rgba(240, 112, 112, 0.24), 0 2px 32px rgba(240, 112, 112, 0.12);
+}
+
+.feedback {
+  width: 100%;
+  max-width: 360px;
+  margin-bottom: 12px;
+  padding: 14px;
+  border: 1px solid #2a2a2a;
+  border-radius: 14px;
+  background: #161616;
+}
+
+.feedback[hidden] { display: none; }
+.feedback-intro { margin: 5px 0 12px; color: #777; font-size: 11px; line-height: 1.5; }
+.pitch-chart { display: block; width: 100%; height: auto; overflow: visible; }
+.chart-legend { display: flex; flex-wrap: wrap; gap: 7px 14px; margin: 0 0 14px; color: #808787; font-size: 9px; }
+.chart-legend span { display: inline-flex; align-items: center; gap: 5px; }
+.chart-legend i { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: #78d9bc; }
+.chart-legend .legend-size { width: 11px; height: 11px; border: 1px solid #b896e8; background: transparent; }
+.chart-legend .legend-color { background: linear-gradient(90deg, #f47d83, #e9c374, #78d9bc); }
+.feedback-details { border-top: 1px solid #2a2a2a; padding-top: 10px; }
+.feedback-details summary { color: #aaa; font-size: 11px; cursor: pointer; }
+.feedback-details[open] summary { margin-bottom: 7px; }
+.feedback-row { padding: 10px 0; border-top: 1px solid #2a2a2a; }
+.feedback-row:last-child { padding-bottom: 0; }
+.feedback-row-heading { display: flex; justify-content: space-between; gap: 10px; margin-bottom: 6px; color: #ddd; font-size: 13px; }
+.feedback-row-count { color: #777; font-size: 11px; }
+.feedback-metrics { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 8px; color: #999; font-size: 11px; }
+.feedback-metrics strong { color: #eee; font-weight: 500; }
+.feedback-empty { margin: 0; color: #888; font-size: 12px; }
+
+.status-text {
+  min-height: 22px;
+  margin: 0 0 8px;
+  text-align: center;
+  font-size: 13px;
+  color: #6a6a6a;
+}
+
+.status-text.correct {
+  color: #3ddc66;
+  font-weight: 600;
+}
+
+.status-text.incorrect {
+  color: #f07070;
+  font-weight: 600;
+}
+
+.score-wrap {
+  touch-action: none;
+}
+
+.score {
+  display: block;
+  width: min(420px, calc(100vw - 32px), calc((100dvh - 360px) * 0.913));
+  min-width: 280px;
+  height: auto;
+  aspect-ratio: 420 / 460;
+  max-width: 100%;
+  margin: 0 auto;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.script-warning {
+  margin: 10px auto 0;
+  max-width: 300px;
+  border: 1px solid #3a2c12;
+  border-radius: 8px;
+  padding: 10px 12px;
+  background: #191206;
+  color: #e7bc67;
+  font-size: 12px;
+  line-height: 1.55;
+  text-align: left;
+}
+
+.js-enabled .script-warning {
+  display: none;
+}
+
+.actions {
+  display: flex;
+  width: 100%;
+  max-width: 360px;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.button {
+  flex: 1;
+  min-height: 48px;
+  padding: 14px;
+  border: 1px solid #333333;
+  border-radius: 10px;
+  background: #161616;
+  color: #cccccc;
+  font-size: 15px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.button-primary {
+  border-color: #eeeeee;
+  background: #eeeeee;
+  color: #0a0a0a;
+}
+
+.answer-compare {
+  margin: 4px 8px 2px;
+  padding: 12px;
+  border: 1px solid #353535;
+  border-radius: 10px;
+  background: #111111;
+  text-align: center;
+}
+
+.answer-compare[hidden] { display: none; }
+.answer-compare p { margin: 0 0 9px; color: #aaa; font-size: 11px; line-height: 1.5; }
+.answer-compare .button { width: 100%; min-height: 42px; padding: 10px; font-size: 13px; }
+
+.note {
+  margin: 10px 0 0;
+  text-align: center;
+  font-size: 11px;
+  line-height: 1.8;
+  color: #444444;
+}
+
+@media (max-width: 380px) {
+  .app-shell {
+    padding-inline: 10px;
+  }
+
+  .trainer-card {
+    padding-inline: 6px;
+  }
+}
+
+@media (max-height: 720px) {
+  .app-shell {
+    padding-top: 10px;
+  }
+
+  .app-header {
+    margin-bottom: 8px;
+  }
+
+  .eyebrow,
+  .note {
+    display: none;
+  }
+
+  h1 {
+    font-size: 18px;
+  }
+
+  .trainer-card {
+    margin-bottom: 10px;
+    padding-top: 10px;
+    padding-bottom: 12px;
+  }
+
+  .score {
+    width: min(360px, calc(100vw - 48px), calc((100dvh - 268px) * 0.913));
+  }
+
+}
+
+@media (max-height: 640px) {
+  .score {
+    width: min(320px, calc(100vw - 48px), calc((100dvh - 230px) * 0.913));
+  }
+
+}
+
+    </style>
+  </head>
+  <body>
+    <main class="app-shell">
+      <header class="app-header">
+        <p class="eyebrow">事前テスト</p>
+        <p id="streak" class="streak" hidden></p>
+      </header>
+
+      <section id="trainerCard" class="trainer-card" aria-label="音感トレーニング">
+        <p id="statusText" class="status-text">スタートを押してください</p>
+
+        <div id="scoreWrap" class="score-wrap">
+          <svg
+            id="score"
+            class="score"
+            width="420"
+            height="460"
+            viewBox="0 0 420 460"
+            role="img"
+            aria-label="上下に動かして音の高さを合わせる表示"
+          >
+            <text x="160" y="230" font-size="14" text-anchor="middle" fill="#555555">Safari / Chromeで開いてください</text>
+          </svg>
+        </div>
+
+        <div id="answerFeedback" class="answer-compare" hidden>
+          <p>基準音 → 正解の音 → 自分の音 → 正解の音の順に自動で再生します。</p>
+          <button id="replayIncorrectButton" class="button" type="button">同じ音をもう一度聴く</button>
+        </div>
+
+        <p id="scriptWarning" class="script-warning">
+          このプレビューでは再生できません。共有メニューからSafariやChromeで開くか、WebにアップロードしたURLで開いてください。
+        </p>
+      </section>
+
+      <section id="feedback" class="feedback" aria-label="音程ごとのフィードバック" hidden>
+        <p class="feedback-intro">上ほど合わせるまでに時間がかかり、点の大きさはまたいだ回数、色は正解率を表します。</p>
+        <p id="adaptiveInfo" class="feedback-intro"></p>
+        <p id="storageNote" class="feedback-intro" hidden></p>
+        <svg id="pitchChart" class="pitch-chart" viewBox="0 0 360 228" role="img" aria-label="音程ごとの平均時間、音をまたいだ回数、正解率のグラフ"></svg>
+        <div class="chart-legend" aria-label="グラフの見方">
+          <span><i class="legend-time"></i>高さ：平均時間</span>
+          <span><i class="legend-size"></i>大きさ：またぎ回数</span>
+          <span><i class="legend-color"></i>色：正解率</span>
+        </div>
+        <details class="feedback-details">
+          <summary>音程ごとの数値を見る</summary>
+          <div id="feedbackRows"></div>
+        </details>
+      </section>
+
+      <div class="actions">
+        <button id="mainButton" class="button button-primary" type="button">スタート</button>
+      </div>
+
+      <p class="note">音の高さは周波数の対数スケールに基づいています</p>
+    </main>
+
+    <script>
+const REFERENCE_FREQUENCIES = [261.63, 293.66, 329.63, 349.23, 392.0, 440.0, 493.88, 523.25];
+const PITCH_CLASS_NAMES = ["ド", "ド♯", "レ", "レ♯", "ミ", "ファ", "ファ♯", "ソ", "ソ♯", "ラ", "ラ♯", "シ"];
+const BLACK_KEY_PITCH_CLASSES = new Set([1, 3, 6, 8, 10]);
+
+const SVG_NS = "http://www.w3.org/2000/svg";
+const SVG_W = 420;
+const SVG_H = 460;
+const RAIL_X = 210;
+const STAFF_X1 = 50;
+const STAFF_X2 = 278;
+const STAFF_E4_MIDI = 64;
+const STAFF_CENTER_Y = 230;
+const STAFF_SPACE = 24;
+const TREBLE_STAFF_LINE_MIDIS = [77, 74, 71, 67, 64];
+const SNAP_CENTS = 32;
+const TOTAL_QUESTIONS = 10;
+const GROUP_CONFIG = {
+  A: { feedback: true, sliderSound: true, snapCue: true, testMode: false },
+  B: { feedback: false, sliderSound: true, snapCue: true, testMode: false },
+  C: { feedback: true, sliderSound: false, snapCue: true, testMode: false },
+  D: { feedback: false, sliderSound: false, snapCue: true, testMode: false },
+  PRE: { feedback: false, sliderSound: false, snapCue: false, testMode: true },
+  POST: { feedback: false, sliderSound: false, snapCue: false, testMode: true },
+};
+const GROUP = (document.documentElement.dataset.group || "A").toUpperCase();
+const EXPERIMENT = GROUP_CONFIG[GROUP] || GROUP_CONFIG.A;
+const HISTORY_STORAGE_KEY = `pitchTrainerRelativeHistoryV1-${GROUP}`;
+const ADAPTIVE_MIN_TOTAL = 20;
+const ADAPTIVE_MIN_PER_NOTE = 3;
+const WEAK_NOTE_CHANCE = 0.7;
+const RELATIVE_OFFSETS = Array.from({ length: 25 }, (_, index) => index - 12);
+let F_MIN = REFERENCE_FREQUENCIES[6] / 2;
+let F_MAX = REFERENCE_FREQUENCIES[6] * 2;
+
+function loadHistory() {
+  try {
+    const stored = window.localStorage.getItem(HISTORY_STORAGE_KEY);
+    if (!stored) return [];
+    const parsed = JSON.parse(stored);
+    return Array.isArray(parsed) ? parsed.filter((item) =>
+      item && typeof item.noteName === "string" &&
+      Number.isFinite(item.seconds) && Number.isFinite(item.crossings) &&
+      typeof item.correct === "boolean"
+    ) : [];
+  } catch {
+    return null;
+  }
+}
+
+const loadedHistory = loadHistory();
+
+const activeShotOscillators = new Set(); let currentReferenceNote = null; let previousReferenceFreq = null; const state = {
+  phase: "idle",
+  targetNote: null,
+  noteFreq: REFERENCE_FREQUENCIES[6],
+  pitchNotes: [],
+  answerFreq: null,
+  snappedNote: null,
+  snapFlash: false,
+  streak: 0,
+  questionNumber: 0,
+  correctCount: 0,
+  adaptiveEnabled: EXPERIMENT.feedback,
+  correctAnim: false,
+  audio: null,
+  drag: null,
+  lastSnap: null,
+  previousTargetName: null,
+  history: loadedHistory || [],
+  storageError: loadedHistory === null,
+  roundStartedAt: 0,
+  crossings: 0,
+  lastPitchSide: 0,
+  recordedThisRound: false,
+  promptPhase: "idle",
+  promptTimers: [],
+};
+
+document.documentElement.classList.add("js-enabled");
+
+const el = {
+  score: document.querySelector("#score"),
+  scoreWrap: document.querySelector("#scoreWrap"),
+  statusText: document.querySelector("#statusText"),
+  streak: document.querySelector("#streak"),
+  trainerCard: document.querySelector("#trainerCard"),
+  mainButton: document.querySelector("#mainButton"),
+  answerFeedback: document.querySelector("#answerFeedback"),
+  replayIncorrectButton: document.querySelector("#replayIncorrectButton"),
+  feedback: document.querySelector("#feedback"),
+  pitchChart: document.querySelector("#pitchChart"),
+  feedbackRows: document.querySelector("#feedbackRows"),
+  adaptiveInfo: document.querySelector("#adaptiveInfo"),
+  storageNote: document.querySelector("#storageNote"),
+};
+
+function staffPositionForMidi(midi) {
+  const pitchClass = ((Math.round(midi) % 12) + 12) % 12;
+  const octave = Math.floor(Math.round(midi) / 12) - 1;
+  const letterForPitchClass = [0, 0, 1, 1, 2, 3, 3, 4, 4, 5, 5, 6];
+  const accidentalOffset = BLACK_KEY_PITCH_CLASSES.has(pitchClass) ? 0.5 : 0;
+  return octave * 7 + letterForPitchClass[pitchClass] + accidentalOffset;
+}
+
+function staffLayout() {
+  const notes = getActiveNotes();
+  const positions = notes.map((note) => staffPositionForMidi(
+    Math.round(69 + 12 * Math.log2(note.freq / 440))
+  )).concat(TREBLE_STAFF_LINE_MIDIS.map(staffPositionForMidi));
+  const lowestPosition = Math.min(...positions);
+  const highestPosition = Math.max(...positions);
+  const space = Math.min(STAFF_SPACE, (SVG_H - 56) / (highestPosition - lowestPosition));
+  return {
+    centerPosition: (lowestPosition + highestPosition) / 2,
+    centerY: STAFF_CENTER_Y,
+    space,
+  };
+}
+
+function staffYForMidi(midi) {
+  const layout = staffLayout();
+  return layout.centerY - (staffPositionForMidi(midi) - layout.centerPosition) * layout.space;
+}
+
+function staffYForFrequency(freq) {
+  const midiFloat = 69 + 12 * Math.log2(freq / 440);
+  const lowMidi = Math.floor(midiFloat);
+  const fraction = midiFloat - lowMidi;
+  const lowY = staffYForMidi(lowMidi);
+  const highY = staffYForMidi(lowMidi + 1);
+  return lowY + (highY - lowY) * fraction;
+}
+
+function frequencyAtStaffY(y) {
+  const notes = getActiveNotes().slice().sort((a, b) => a.semitones - b.semitones);
+  for (let index = 0; index < notes.length - 1; index += 1) {
+    const lowerPitch = notes[index];
+    const higherPitch = notes[index + 1];
+    const lowerY = staffYForFrequency(lowerPitch.freq);
+    const higherY = staffYForFrequency(higherPitch.freq);
+    if (y <= lowerY && y >= higherY) {
+      const ratio = (lowerY - y) / (lowerY - higherY);
+      return lowerPitch.freq * 2 ** ((higherPitch.semitones - lowerPitch.semitones) * ratio / 12);
+    }
+  }
+  return y > staffYForFrequency(notes[0].freq) ? notes[0].freq : notes[notes.length - 1].freq;
+}
+
+function toCents(f1, f2) {
+  return 1200 * Math.log2(f1 / f2);
+}
+
+function frequencyToNoteName(freq) {
+  const midi = Math.round(69 + 12 * Math.log2(freq / 440));
+  const pitchClass = ((midi % 12) + 12) % 12;
+  const octave = Math.floor(midi / 12) - 1;
+  return `${PITCH_CLASS_NAMES[pitchClass]}${octave}`;
+}
+
+function intervalNameForSemitones(semitones) {
+  if (semitones === 0) return "基準音";
+  const names = [
+    "", "短2度", "長2度", "短3度", "長3度", "完全4度", "増4度／減5度",
+    "完全5度", "短6度", "長6度", "短7度", "長7度", "1オクターブ",
+  ];
+  const interval = names[Math.min(Math.abs(semitones), names.length - 1)];
+  return `${interval}${semitones > 0 ? "上" : "下"}`;
+}
+
+function describeIntervalFromReference(currentFreq, referenceFreq) {
+  const semitones = Math.round(toCents(currentFreq, referenceFreq) / 100);
+  if (semitones === 0) return "基準音とほぼ同じ高さ";
+  return `基準音より ${intervalNameForSemitones(semitones)}`;
+}
+
+function makeRelativeNotes(referenceFreq) {
+  const notes = RELATIVE_OFFSETS.map((semitones) => ({
+    name: String(semitones),
+    label: intervalNameForSemitones(semitones),
+    freq: referenceFreq * 2 ** (semitones / 12),
+    semitones,
+    noteName: frequencyToNoteName(referenceFreq * 2 ** (semitones / 12)),
+    isBlack: BLACK_KEY_PITCH_CLASSES.has(((Math.round(69 + 12 * Math.log2(referenceFreq / 440)) + semitones) % 12 + 12) % 12),
+  }));
+  return notes;
+}
+
+function getActiveNotes() {
+  return state.pitchNotes.length ? state.pitchNotes : makeRelativeNotes(REFERENCE_FREQUENCIES[6]);
+}
+
+function getWeakNotes(notes) {
+  const answeredHistory = state.history.filter((entry) => !entry.skipped);
+  if (answeredHistory.length < ADAPTIVE_MIN_TOTAL) return [];
+  const stats = notes.map((note) => {
+    const attempts = answeredHistory.filter((entry) => entry.noteName === note.name);
+    if (attempts.length < ADAPTIVE_MIN_PER_NOTE) return null;
+    return {
+      note,
+      accuracy: attempts.filter((entry) => entry.correct).length / attempts.length,
+      averageSeconds: attempts.reduce((sum, entry) => sum + entry.seconds, 0) / attempts.length,
+      averageCrossings: attempts.reduce((sum, entry) => sum + entry.crossings, 0) / attempts.length,
+    };
+  }).filter(Boolean);
+  if (stats.length === 0) return [];
+
+  const normalize = (value, values) => {
+    const min = Math.min(...values);
+    const max = Math.max(...values);
+    return max === min ? 0.5 : (value - min) / (max - min);
+  };
+  const times = stats.map((item) => item.averageSeconds);
+  const crossings = stats.map((item) => item.averageCrossings);
+  const accuracies = stats.map((item) => item.accuracy);
+  const ranked = stats.map((item) => ({
+    ...item,
+    difficulty:
+      (1 - normalize(item.accuracy, accuracies)) * 0.5 +
+      normalize(item.averageSeconds, times) * 0.3 +
+      normalize(item.averageCrossings, crossings) * 0.2,
+  })).sort((a, b) => b.difficulty - a.difficulty);
+
+  const focusCount = Math.max(1, Math.ceil(ranked.length * 0.3));
+  return ranked.slice(0, focusCount).map((item) => item.note);
+}
+
+function randomItem(items) {
+  return items[Math.floor(Math.random() * items.length)];
+}
+
+function nearestNote(rawFreq, notes) {
+  let bestDist = Infinity;
+  let bestNote = null;
+
+  for (const note of notes) {
+    const dist = Math.abs(toCents(rawFreq, note.freq));
+    if (dist < bestDist) {
+      bestDist = dist;
+      bestNote = note;
+    }
+  }
+
+  return { note: bestNote, cents: bestDist };
+}
+
+function getAudio() {
+  if (state.audio) return state.audio;
+
+  const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+  const ctx = new AudioContextClass();
+  const userOsc = ctx.createOscillator();
+  const userHarmonicOsc = ctx.createOscillator();
+  const userPresenceOsc = ctx.createOscillator();
+  const userHarmonicMix = ctx.createGain();
+  const userPresenceMix = ctx.createGain();
+  const userGain = ctx.createGain();
+  const targetOsc = ctx.createOscillator();
+  const targetHarmonicOsc = ctx.createOscillator();
+  const targetPresenceOsc = ctx.createOscillator();
+  const targetHarmonicMix = ctx.createGain();
+  const targetPresenceMix = ctx.createGain();
+  const targetGain = ctx.createGain();
+
+  userOsc.type = "sine";
+  userOsc.frequency.value = state.noteFreq;
+  userHarmonicOsc.type = "sine";
+  userHarmonicOsc.frequency.value = state.noteFreq * 2;
+  userPresenceOsc.type = "sine";
+  userPresenceOsc.frequency.value = state.noteFreq * 3;
+  // A clear, flute-like tone: keep the fundamental dominant and add only a
+  // small octave for audibility across classroom speakers.
+  userHarmonicMix.gain.value = 0.12;
+  userPresenceMix.gain.value = 0;
+  userGain.gain.value = 0;
+  userOsc.connect(userGain);
+  userHarmonicOsc.connect(userHarmonicMix);
+  userHarmonicMix.connect(userGain);
+  userPresenceOsc.connect(userPresenceMix);
+  userPresenceMix.connect(userGain);
+  userGain.connect(ctx.destination);
+  userOsc.start();
+  userHarmonicOsc.start();
+  userPresenceOsc.start();
+
+  targetOsc.type = "sine";
+  targetOsc.frequency.value = 440;
+  targetHarmonicOsc.type = "sine";
+  targetHarmonicOsc.frequency.value = 880;
+  targetPresenceOsc.type = "sine";
+  targetPresenceOsc.frequency.value = 1320;
+  targetHarmonicMix.gain.value = 0.12;
+  targetPresenceMix.gain.value = 0;
+  targetGain.gain.value = 0;
+  targetOsc.connect(targetGain);
+  targetHarmonicOsc.connect(targetHarmonicMix);
+  targetHarmonicMix.connect(targetGain);
+  targetPresenceOsc.connect(targetPresenceMix);
+  targetPresenceMix.connect(targetGain);
+  targetGain.connect(ctx.destination);
+  targetOsc.start();
+  targetHarmonicOsc.start();
+  targetPresenceOsc.start();
+
+  state.audio = {
+    ctx, userOsc, userHarmonicOsc, userPresenceOsc, userGain,
+    targetOsc, targetHarmonicOsc, targetPresenceOsc, targetGain,
+  };
+  return state.audio;
+}
+
+function enforceSilentSlider() {
+  if (EXPERIMENT.sliderSound || !state.audio) return;
+  const { ctx, userGain } = state.audio;
+  userGain.gain.cancelScheduledValues(ctx.currentTime);
+  userGain.gain.setValueAtTime(0, ctx.currentTime);
+}
+
+function playShot(freq, vol, dur, type = "sine", when = 0) {
+  const { ctx } = getAudio();
+  const t = ctx.currentTime + when;
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
+
+  osc.type = type;
+  osc.frequency.value = freq;
+  const attack = Math.min(0.025, dur * 0.2);
+  const release = Math.min(0.12, dur * 0.25);
+  const holdUntil = Math.max(t + attack, t + dur - release);
+  gain.gain.setValueAtTime(0, t);
+  gain.gain.linearRampToValueAtTime(vol, t + attack);
+  gain.gain.setValueAtTime(vol, holdUntil);
+  gain.gain.exponentialRampToValueAtTime(0.001, t + dur);
+  osc.connect(gain);
+  gain.connect(ctx.destination);
+  osc.start(t);
+  osc.stop(t + dur + 0.02); activeShotOscillators.add(osc); osc.addEventListener("ended", () => activeShotOscillators.delete(osc), { once: true });
+}
+
+function playPitchTone(freq, when = 0, duration = 0.95, volume = 0.55) {
+  // Match the slider's sustained sine tone and octave balance so prompt pitches
+  // remain present for their full duration instead of fading like a pluck.
+  playShot(freq, volume, duration, "sine", when);
+  playShot(freq * 2, volume * 0.12, duration, "sine", when);
+}
+
+function playReferenceTone(freq, when = 0, duration = 0.95) {
+  playPitchTone(freq, when, duration);
+}
+
+function playTargetTone(freq, when = 0, duration = 0.95) {
+  playPitchTone(freq, when, duration);
+}
+
+function playIncorrectFeedback() {
+  if (!currentReferenceNote || !state.targetNote || !Number.isFinite(state.answerFreq)) return;
+  for (const shot of activeShotOscillators) {
+    try { shot.stop(); } catch {}
+  }
+  activeShotOscillators.clear();
+  // Give a short anchor, then compare the correct pitch, the learner's pitch,
+  // and the correct pitch again (A-B-X-B) with enough silence to separate them.
+  const start = 0.18;
+  const spacing = 0.82;
+  const duration = 0.62;
+  playReferenceTone(currentReferenceNote.freq, start, duration);
+  playTargetTone(state.targetNote.freq, start + spacing, duration);
+  playTargetTone(state.answerFreq, start + spacing * 2, duration);
+  playTargetTone(state.targetNote.freq, start + spacing * 3, duration);
+}
+
+function playSnapSound(freq) {
+  playPitchTone(freq, 0, 0.12, 0.18);
+}
+
+
+function playCorrectSound(freq) {
+  // Frame the target with its lower and upper octave so its pitch is easy to hear.
+  playPitchTone(freq / 2, 0, 0.42, 0.5);
+  playPitchTone(freq, 0.5, 0.42, 0.55);
+  playPitchTone(freq * 2, 1.0, 0.48, 0.5);
+}
+
+function endRound() {
+  if (!state.audio) return;
+
+  const { ctx, targetGain, userGain } = state.audio;
+  for (const gain of [targetGain, userGain]) {
+    gain.gain.cancelScheduledValues(ctx.currentTime);
+    gain.gain.setValueAtTime(gain.gain.value, ctx.currentTime);
+    gain.gain.linearRampToValueAtTime(0, ctx.currentTime + 0.3);
+  }
+}
+
+function startQuestion() {
+  const audio = getAudio();
+  const pool = getActiveNotes();
+  state.promptTimers.forEach((timer) => window.clearTimeout(timer));
+  state.promptTimers = []; for (const shot of activeShotOscillators) { try { shot.stop(); } catch {} } activeShotOscillators.clear();
+  const referenceNote = currentReferenceNote;
+  let choices = pool.filter((item) =>
+    item.name !== state.previousTargetName && item.semitones !== 0
+  );
+  if (choices.length === 0) {
+    choices = pool.filter((item) => item.semitones !== 0);
+  }
+  const weakNotes = state.adaptiveEnabled
+    ? getWeakNotes(pool).filter((item) => item.semitones !== 0)
+    : [];
+  const weakChoices = weakNotes.filter((item) => item.name !== state.previousTargetName);
+  const shouldFocus = weakChoices.length > 0 && Math.random() < WEAK_NOTE_CHANCE;
+  const note = shouldFocus ? randomItem(weakChoices) : randomItem(choices.length > 0 ? choices : pool);
+  state.previousTargetName = note.name;
+  void 0;
+
+  state.phase = "playing";
+  state.targetNote = note;
+  state.answerFreq = null;
+  // Start the slider at the reference pitch so the learner can compare from
+  // the known note, while the reference itself still changes each question.
+  state.noteFreq = referenceNote.freq;
+  state.promptPhase = "reference";
+  state.snappedNote = null;
+  state.snapFlash = false;
+  state.drag = null;
+  state.lastSnap = null;
+  state.roundStartedAt = performance.now();
+  state.crossings = 0;
+  state.lastPitchSide = 0;
+  state.recordedThisRound = false;
+
+  // Play the reference first, then the target once. The target is silent while
+  // The assigned condition controls whether the pitch slider is audible.
+  audio.targetGain.gain.cancelScheduledValues(audio.ctx.currentTime);
+  audio.targetGain.gain.setValueAtTime(0, audio.ctx.currentTime);
+  audio.targetOsc.frequency.setValueAtTime(note.freq, audio.ctx.currentTime);
+  audio.targetHarmonicOsc.frequency.setValueAtTime(note.freq * 2, audio.ctx.currentTime);
+  audio.targetPresenceOsc.frequency.setValueAtTime(note.freq * 3, audio.ctx.currentTime);
+  audio.userOsc.frequency.setValueAtTime(state.noteFreq, audio.ctx.currentTime);
+  audio.userHarmonicOsc.frequency.setValueAtTime(state.noteFreq * 2, audio.ctx.currentTime);
+  audio.userPresenceOsc.frequency.setValueAtTime(state.noteFreq * 3, audio.ctx.currentTime);
+  audio.userGain.gain.cancelScheduledValues(audio.ctx.currentTime);
+  audio.userGain.gain.setValueAtTime(0, audio.ctx.currentTime);
+  // Use distinct, sustained tones with a gap so the reference and target never overlap.
+  playReferenceTone(referenceNote.freq);
+  state.promptTimers.push(window.setTimeout(() => {
+    if (state.phase !== "playing") return;
+    state.promptPhase = "target";
+    render();
+    playTargetTone(note.freq);
+  }, 1450));
+  state.promptTimers.push(window.setTimeout(() => {
+    if (state.phase !== "playing") return;
+    state.promptPhase = "adjust";
+    // The target has finished. Start the reference-pitch slider tone and keep
+    // it audible continuously so dragging changes pitch without starting audio.
+    const { ctx, userOsc, userHarmonicOsc, userPresenceOsc, userGain } = audio;
+    userOsc.frequency.setValueAtTime(state.noteFreq, ctx.currentTime);
+    userHarmonicOsc.frequency.setValueAtTime(state.noteFreq * 2, ctx.currentTime);
+    userPresenceOsc.frequency.setValueAtTime(state.noteFreq * 3, ctx.currentTime);
+    userGain.gain.cancelScheduledValues(ctx.currentTime);
+    userGain.gain.setValueAtTime(0, ctx.currentTime);
+    if (EXPERIMENT.sliderSound) {
+      userGain.gain.linearRampToValueAtTime(0.3, ctx.currentTime + 0.08);
+    } else {
+      enforceSilentSlider();
+    }
+    state.roundStartedAt = performance.now();
+    render();
+  }, 2950));
+  render();
+}
+
+function recordQuestion(correct, skipped = false) {
+  if (state.recordedThisRound || !state.targetNote) return;
+  state.recordedThisRound = true;
+  const result = {
+    noteName: state.targetNote.name,
+    label: state.targetNote.label,
+    correct,
+    skipped,
+    seconds: Math.max(0, (performance.now() - state.roundStartedAt) / 1000),
+    crossings: state.crossings,
+    savedAt: new Date().toISOString(),
+  };
+  state.history.push(result);
+  try {
+    window.localStorage.setItem(HISTORY_STORAGE_KEY, JSON.stringify(state.history));
+    state.storageError = false;
+  } catch {
+    state.storageError = true;
+  }
+}
+
+function setCorrect() {
+  if (state.phase !== "playing") return;
+  recordQuestion(true);
+  state.phase = "correct";
+  state.streak += 1;
+  state.correctCount += 1;
+  state.correctAnim = true;
+  endRound();
+  if (!EXPERIMENT.testMode) playCorrectSound(state.snappedNote.freq);
+  render();
+
+  window.setTimeout(() => {
+    state.correctAnim = false;
+    render();
+  }, 1000);
+}
+
+function setIncorrect() {
+  if (state.phase !== "playing") return;
+  recordQuestion(false);
+  state.answerFreq = state.noteFreq;
+  state.phase = "incorrect";
+  endRound();
+  render();
+  if (!EXPERIMENT.testMode) playIncorrectFeedback();
+}
+
+function finishGame() {
+  state.phase = "complete";
+  endRound();
+  render();
+}
+
+function nextQuestion() {
+  if (state.questionNumber >= TOTAL_QUESTIONS) {
+    finishGame();
+    return;
+  }
+  state.questionNumber += 1;
+  startQuestion();
+}
+
+function startGame() {
+  state.streak = 0;
+  state.correctCount = 0;
+  state.questionNumber = 0;
+  state.previousTargetName = null;
+  const referenceOptions = REFERENCE_FREQUENCIES.filter((freq) => freq !== previousReferenceFreq);
+  currentReferenceNote = { freq: randomItem(referenceOptions.length ? referenceOptions : REFERENCE_FREQUENCIES) };
+  previousReferenceFreq = currentReferenceNote.freq;
+  state.pitchNotes = makeRelativeNotes(currentReferenceNote.freq);
+  F_MIN = currentReferenceNote.freq / 2;
+  F_MAX = currentReferenceNote.freq * 2;
+  nextQuestion();
+}
+
+function svgElement(name, attrs = {}) {
+  const node = document.createElementNS(SVG_NS, name);
+  for (const [key, value] of Object.entries(attrs)) {
+    node.setAttribute(key, value);
+  }
+  return node;
+}
+
+function addText(parent, attrs, text) {
+  const node = svgElement("text", attrs);
+  node.textContent = text;
+  parent.append(node);
+  return node;
+}
+
+function renderStaff() {
+  // Treble-clef line pitches, positioned around the full two-octave range.
+  const staffLines = TREBLE_STAFF_LINE_MIDIS
+    .map(staffYForMidi)
+    .sort((a, b) => a - b);
+  for (const y of staffLines) {
+    el.score.append(svgElement("line", {
+      x1: STAFF_X1, y1: y, x2: STAFF_X2, y2: y,
+      stroke: "#515653", "stroke-width": 0.85,
+    }));
+  }
+}
+
+function renderGuides() {
+  const notes = getActiveNotes().slice().sort((a, b) => a.semitones - b.semitones);
+  const layout = staffLayout();
+  const staffLines = TREBLE_STAFF_LINE_MIDIS
+    .map(staffYForMidi)
+    .sort((a, b) => a - b);
+  const staffTop = staffLines[0];
+  const staffBottom = staffLines[staffLines.length - 1];
+
+  // Each pitch gets a faint guide at its conventional notehead position.
+  for (const note of notes) {
+    const y = staffYForFrequency(note.freq);
+    el.score.append(svgElement("line", {
+      x1: STAFF_X1, y1: y, x2: STAFF_X2, y2: y,
+      stroke: note.semitones === 0 ? "#50665d" : "#363b38",
+      "stroke-width": note.semitones === 0 ? 0.8 : 0.55,
+      "stroke-dasharray": "1.2 5",
+      opacity: note.semitones === 0 ? 0.8 : 0.58,
+    }));
+  }
+
+  // Add ledger lines for natural notes that fall beyond the five-line stave.
+  const ledgerPositions = new Set();
+  for (const note of notes) {
+    if (note.isBlack) continue;
+    const midi = Math.round(69 + 12 * Math.log2(note.freq / 440));
+    const position = staffPositionForMidi(midi);
+    const y = staffYForMidi(midi);
+    const isOutsideStaff = y < staffTop || y > staffBottom;
+    const isLinePosition = Math.abs(position - staffPositionForMidi(STAFF_E4_MIDI)) % 2 === 0;
+    if (!isOutsideStaff || !isLinePosition || ledgerPositions.has(y)) continue;
+    ledgerPositions.add(y);
+    el.score.append(svgElement("line", {
+      x1: RAIL_X - 16, y1: y, x2: RAIL_X + 16, y2: y,
+      stroke: "#515653", "stroke-width": 0.85,
+    }));
+  }
+
+  // Compact vertical piano. White keys share boundaries; black keys overlay
+  // the gaps between them and extend only halfway across the key width.
+  const pianoX = 304;
+  const pianoWidth = 78;
+  const blackWidth = pianoWidth * 0.5;
+  const blackHeight = layout.space * 0.62;
+  const whiteNotes = notes.filter((note) => !note.isBlack);
+  const referenceFreq = currentReferenceNote?.freq || notes.find((note) => note.semitones === 0).freq;
+  const keyboardNotes = makeRelativeNotes(referenceFreq, false);
+  const referenceMidi = Math.round(69 + 12 * Math.log2(referenceFreq / 440));
+  for (const semitones of [-13, 13]) {
+    const pitchClass = ((referenceMidi + semitones) % 12 + 12) % 12;
+    if (BLACK_KEY_PITCH_CLASSES.has(pitchClass)) {
+      keyboardNotes.push({
+        semitones,
+        freq: referenceFreq * 2 ** (semitones / 12),
+        isBlack: true,
+      });
+    }
+  }
+  const currentKey = nearestNote(state.noteFreq, notes).note;
+
+  whiteNotes.forEach((note, index) => {
+    const y = staffYForFrequency(note.freq);
+    const previous = whiteNotes[index - 1];
+    const next = whiteNotes[index + 1];
+    const top = next ? (y + staffYForFrequency(next.freq)) / 2 : y - layout.space / 2;
+    const bottom = previous ? (y + staffYForFrequency(previous.freq)) / 2 : y + layout.space / 2;
+    const active = note.semitones === currentKey?.semitones;
+    el.score.append(svgElement("rect", {
+      x: pianoX, y: top, width: pianoWidth, height: bottom - top,
+      rx: 1.5,
+      fill: active ? "#b9e8d6" : "#e5e2dc",
+      stroke: active ? "#529e82" : "#77746f",
+      "stroke-width": active ? 1.25 : 0.8,
+    }));
+  });
+  keyboardNotes.filter((note) => note.isBlack).forEach((note) => {
+    const y = staffYForFrequency(note.freq);
+    const active = note.semitones === currentKey?.semitones;
+    el.score.append(svgElement("rect", {
+      // Extend a fraction over the white-key edge so its selection fill and
+      // antialiasing cannot peek through along the black-key border.
+      x: pianoX - 0.6, y: y - blackHeight / 2,
+      width: blackWidth + 1.2, height: blackHeight,
+      rx: 1.2, fill: active ? "#77c9a9" : "#202321",
+      stroke: active ? "#78d9bc" : "#080908",
+      "stroke-width": active ? 1.8 : 0.7,
+    }));
+  });
+  addText(el.score, {
+    x: pianoX, y: 18, "font-size": 9, fill: "#a6d9c3",
+  }, `鍵盤  ${frequencyToNoteName(state.noteFreq)}`);
+}
+
+function renderUserNote() {
+  if (state.phase === "idle") return;
+
+  const userY = staffYForFrequency(state.noteFreq);
+  const group = svgElement("g", { style: "cursor: ns-resize" });
+
+  if (state.snapFlash || state.snappedNote) {
+    group.append(svgElement("ellipse", {
+      cx: RAIL_X,
+      cy: userY,
+      rx: state.snapFlash ? 18 : 15,
+      ry: state.snapFlash ? 8 : 6,
+      fill: "none",
+      stroke: "#78d9bc",
+      "stroke-width": state.snapFlash ? 2 : 1,
+      opacity: state.snapFlash ? 0.35 : 0.15,
+    }));
+  }
+
+  const noteColor = state.phase === "correct" ? "#3ddc66" : "#eeeeee";
+  group.append(svgElement("line", {
+    x1: RAIL_X + 12, y1: userY, x2: RAIL_X + 12, y2: userY - 38,
+    stroke: noteColor, "stroke-width": 2,
+  }));
+  group.append(svgElement("ellipse", {
+    cx: RAIL_X, cy: userY, rx: 12, ry: staffLayout().space / 2,
+    fill: noteColor, stroke: "#17221e", "stroke-width": 1,
+  }));
+
+  if (currentReferenceNote && (
+    (state.phase === "playing" && state.promptPhase === "adjust") || state.phase === "incorrect"
+  )) {
+    addText(group, {
+      x: RAIL_X - 18,
+      y: userY,
+      "font-size": 10,
+      "font-weight": 500,
+      "text-anchor": "end",
+      fill: "#a6d9c3",
+    }, describeIntervalFromReference(state.noteFreq, currentReferenceNote.freq));
+  }
+
+
+
+  el.score.append(group);
+}
+
+function render() {
+  el.score.replaceChildren();
+  renderGuides();
+  renderStaff();
+  renderUserNote();
+
+  el.trainerCard.classList.toggle("correct", !EXPERIMENT.testMode && state.correctAnim);
+  el.trainerCard.classList.toggle("incorrect", !EXPERIMENT.testMode && state.phase === "incorrect");
+  el.scoreWrap.hidden = state.phase === "complete";
+  const showFeedback = EXPERIMENT.feedback && (state.phase === "complete" || (state.phase === "idle" && state.history.length > 0));
+  el.feedback.hidden = !showFeedback;
+  el.statusText.classList.toggle("correct", !EXPERIMENT.testMode && state.phase === "correct");
+  el.statusText.classList.toggle("incorrect", !EXPERIMENT.testMode && state.phase === "incorrect");
+  el.answerFeedback.hidden = EXPERIMENT.testMode || state.phase !== "incorrect";
+
+  if (state.phase === "idle") {
+    el.statusText.textContent = "スタートを押してください";
+    el.mainButton.textContent = "スタート";
+    el.mainButton.classList.add("button-primary");
+  } else if (state.phase === "playing") {
+    const referenceName = currentReferenceNote ? frequencyToNoteName(currentReferenceNote.freq) : "";
+    const instruction = state.promptPhase === "reference"
+      ? `基準音を聴いてください（${referenceName}）`
+      : state.promptPhase === "target"
+        ? "続けてお題の音を聴いてください"
+        : "基準音とお題の音を頼りに高さを合わせてください";
+    const progress = EXPERIMENT.testMode ? `第${state.questionNumber}問 / ${TOTAL_QUESTIONS}問` : `第${state.questionNumber}問 / ${TOTAL_QUESTIONS}問　・　正解 ${state.correctCount}`;
+    el.statusText.textContent = `${progress}　｜　${instruction}`;
+    el.mainButton.textContent = "スキップ";
+    el.mainButton.classList.remove("button-primary");
+  } else if (state.phase === "correct") {
+    el.statusText.textContent = EXPERIMENT.testMode
+      ? "回答を記録しました"
+      : `正解！ ${state.targetNote.noteName}・基準音から${state.targetNote.label}`;
+    el.mainButton.textContent = state.questionNumber === TOTAL_QUESTIONS ? "結果を見る" : "次の問題";
+    el.mainButton.classList.add("button-primary");
+  } else if (state.phase === "incorrect") {
+    el.statusText.textContent = EXPERIMENT.testMode
+      ? "回答を記録しました"
+      : `不正解。正解は ${state.targetNote.noteName}・基準音から${state.targetNote.label}`;
+    el.mainButton.textContent = state.questionNumber === TOTAL_QUESTIONS ? "結果を見る" : "次の問題";
+    el.mainButton.classList.add("button-primary");
+  } else {
+    el.statusText.textContent = `10問終了！　${state.correctCount}問正解`;
+    el.mainButton.textContent = "もう一度遊ぶ";
+    el.mainButton.classList.add("button-primary");
+  }
+
+  el.streak.hidden = state.phase === "idle";
+  el.streak.textContent = state.phase === "complete"
+    ? `正解率 ${Math.round((state.correctCount / TOTAL_QUESTIONS) * 100)}%`
+    : EXPERIMENT.testMode
+      ? `${state.questionNumber} / ${TOTAL_QUESTIONS} 問`
+      : `${state.questionNumber} / ${TOTAL_QUESTIONS} 問　・　正解 ${state.correctCount}`;
+  el.storageNote.hidden = !state.storageError;
+  el.storageNote.textContent = "保存領域を利用できないため、このプレイの記録を次回に引き継げない可能性があります。";
+  if (showFeedback) renderFeedback();
+}
+
+function feedbackMetric(label, value) {
+  const item = document.createElement("span");
+  item.append(document.createTextNode(`${label} `));
+  const strong = document.createElement("strong");
+  strong.textContent = value;
+  item.append(strong);
+  return item;
+}
+
+function renderPitchChart(grouped) {
+  const svg = el.pitchChart;
+  svg.replaceChildren();
+  const relativeNotes = makeRelativeNotes(1);
+  const observed = relativeNotes.map((note, index) => {
+    const attempts = grouped.get(note.name);
+    if (!attempts) return null;
+    const averageSeconds = attempts.reduce((sum, item) => sum + item.seconds, 0) / attempts.length;
+    const averageCrossings = attempts.reduce((sum, item) => sum + item.crossings, 0) / attempts.length;
+    const accuracy = attempts.filter((item) => item.correct).length / attempts.length;
+    return { note, index, attempts, averageSeconds, averageCrossings, accuracy };
+  }).filter(Boolean);
+
+  const left = 40;
+  const right = 350;
+  const top = 18;
+  const bottom = 182;
+  const xFor = (index) => left + (index / (relativeNotes.length - 1)) * (right - left);
+
+  if (observed.length === 0) {
+    const empty = svgElement("text", {
+      x: 180, y: 104, "text-anchor": "middle", fill: "#737d7d", "font-size": 11,
+    });
+    empty.textContent = "プレイすると音程ごとの傾向がここに現れます";
+    svg.append(empty);
+    return;
+  }
+
+  const maxObserved = Math.max(...observed.map((item) => item.averageSeconds));
+  const maxSeconds = Math.max(3, Math.ceil(maxObserved / 2) * 2);
+  const yFor = (seconds) => bottom - (seconds / maxSeconds) * (bottom - top);
+
+  for (let tick = 0; tick <= 3; tick += 1) {
+    const fraction = tick / 3;
+    const y = bottom - fraction * (bottom - top);
+    const value = maxSeconds * fraction;
+    svg.append(svgElement("line", {
+      x1: left, y1: y, x2: right, y2: y,
+      stroke: tick === 0 ? "#3c4545" : "#293030",
+      "stroke-width": 1,
+      "stroke-dasharray": tick === 0 ? "0" : "2 5",
+    }));
+    const tickLabel = svgElement("text", {
+      x: 31, y: y + 3, "text-anchor": "end", fill: "#687171", "font-size": 8,
+    });
+    tickLabel.textContent = `${value.toFixed(value % 1 ? 1 : 0)}秒`;
+    svg.append(tickLabel);
+  }
+
+  const chartAnchors = new Map([[0, "−12"], [6, "−6"], [12, "基準"], [18, "+6"], [24, "+12"]]);
+  for (let index = 0; index < relativeNotes.length; index += 1) {
+    const x = xFor(index);
+    if (chartAnchors.has(index)) {
+      svg.append(svgElement("line", {
+        x1: x, y1: bottom, x2: x, y2: bottom + 4,
+        stroke: "#465050", "stroke-width": 1,
+      }));
+      const label = svgElement("text", {
+        x, y: 201, "text-anchor": "middle", fill: "#9ca5a5", "font-size": 8,
+      });
+      label.textContent = chartAnchors.get(index);
+      svg.append(label);
+    }
+  }
+
+  let segment = [];
+  const drawSegment = () => {
+    if (segment.length > 1) {
+      const d = segment.map((point, index) => `${index ? "L" : "M"}${xFor(point.index)},${yFor(point.averageSeconds)}`).join(" ");
+      svg.append(svgElement("path", {
+        d, fill: "none", stroke: "url(#profileLine)", "stroke-width": 2,
+        "stroke-linecap": "round", "stroke-linejoin": "round", opacity: 0.72,
+      }));
+    }
+    segment = [];
+  };
+  for (const point of observed) {
+    if (segment.length && point.index !== segment[segment.length - 1].index + 1) drawSegment();
+    segment.push(point);
+  }
+  drawSegment();
+
+  const defs = svgElement("defs");
+  const gradient = svgElement("linearGradient", { id: "profileLine", x1: "0", x2: "1", y1: "0", y2: "0" });
+  gradient.append(svgElement("stop", { offset: "0%", "stop-color": "#81dfc3" }));
+  gradient.append(svgElement("stop", { offset: "100%", "stop-color": "#b29aff" }));
+  defs.append(gradient);
+  svg.prepend(defs);
+
+  for (const point of observed) {
+    const x = xFor(point.index);
+    const y = yFor(point.averageSeconds);
+    const radius = 5.5 + Math.min(point.averageCrossings, 6) * 0.9;
+    const color = point.accuracy >= 0.8 ? "#78d9bc" : point.accuracy >= 0.5 ? "#e8bd70" : "#f17d87";
+    const marker = svgElement("g", { tabindex: "0", role: "img" });
+    const title = svgElement("title");
+    title.textContent = `${point.note.label} · 平均 ${point.averageSeconds.toFixed(1)}秒 · またぎ ${point.averageCrossings.toFixed(1)}回 · 正解率 ${Math.round(point.accuracy * 100)}% · ${point.attempts.length}回`;
+    marker.append(title);
+    marker.append(svgElement("circle", { cx: x, cy: y, r: radius + 5, fill: color, opacity: 0.11 }));
+    marker.append(svgElement("circle", { cx: x, cy: y, r: radius, fill: color, stroke: "#e9ffff", "stroke-width": 1.2, "stroke-opacity": 0.72 }));
+    marker.append(svgElement("circle", { cx: x, cy: y, r: 2, fill: "#ffffff", opacity: 0.9 }));
+    svg.append(marker);
+  }
+}
+
+function renderFeedback() {
+  el.feedbackRows.replaceChildren();
+  const grouped = new Map();
+  for (const result of state.history) {
+    if (!grouped.has(result.noteName)) grouped.set(result.noteName, []);
+    grouped.get(result.noteName).push(result);
+  }
+
+  const intervalNotes = makeRelativeNotes(1);
+  const weakNotes = getWeakNotes(intervalNotes);
+  if (weakNotes.length > 0) {
+    const focusNames = weakNotes.map((note) => note.label).join("・");
+    el.adaptiveInfo.textContent = `苦手な音程を優先して出題中：${focusNames}。苦手音程を約70%、全音程からランダムに約30%出します。`;
+  } else {
+    el.adaptiveInfo.textContent = `出題の偏りを調整するには、スキップを除く累計${ADAPTIVE_MIN_TOTAL}問以上、各音程${ADAPTIVE_MIN_PER_NOTE}回以上の記録が必要です。`;
+  }
+
+  renderPitchChart(grouped);
+
+  if (grouped.size === 0) {
+    const empty = document.createElement("p");
+    empty.className = "feedback-empty";
+    empty.textContent = "今回の記録はありません。もう一度プレイしてみてください。";
+    el.feedbackRows.append(empty);
+    return;
+  }
+
+  for (const note of intervalNotes) {
+    const attempts = grouped.get(note.name);
+    if (!attempts) continue;
+    const averageSeconds = attempts.reduce((sum, item) => sum + item.seconds, 0) / attempts.length;
+    const averageCrossings = attempts.reduce((sum, item) => sum + item.crossings, 0) / attempts.length;
+    const correctCount = attempts.filter((item) => item.correct).length;
+    const row = document.createElement("article");
+    row.className = "feedback-row";
+    const heading = document.createElement("div");
+    heading.className = "feedback-row-heading";
+    const name = document.createElement("strong");
+    name.textContent = note.label;
+    const count = document.createElement("span");
+    count.className = "feedback-row-count";
+    count.textContent = `${attempts.length}回出題`;
+    heading.append(name, count);
+
+    const metrics = document.createElement("div");
+    metrics.className = "feedback-metrics";
+    metrics.append(
+      feedbackMetric("平均時間", `${averageSeconds.toFixed(1)}秒`),
+      feedbackMetric("平均またぎ", `${averageCrossings.toFixed(1)}回`),
+      feedbackMetric("正解率", `${Math.round((correctCount / attempts.length) * 100)}%（${correctCount}/${attempts.length}回）`),
+    );
+    row.append(heading, metrics);
+    el.feedbackRows.append(row);
+  }
+}
+
+function onPointerDown(event) {
+  if (state.phase !== "playing" || state.promptPhase !== "adjust") return;
+
+  enforceSilentSlider();
+  event.preventDefault();
+  el.score.setPointerCapture(event.pointerId);
+  const startFreq = state.snappedNote ? state.snappedNote.freq : state.noteFreq;
+  state.drag = { startY: event.clientY, startFreq };
+  const startCents = toCents(startFreq, state.targetNote.freq);
+  state.lastPitchSide = startCents < -8 ? -1 : startCents > 8 ? 1 : 0;
+
+}
+
+function onPointerMove(event) {
+  if (!state.drag || state.phase !== "playing") return;
+
+  event.preventDefault();
+  const { ctx, userOsc, userHarmonicOsc, userPresenceOsc } = getAudio();
+  enforceSilentSlider();
+  const dy = state.drag.startY - event.clientY;
+  const renderedHeight = el.score.getBoundingClientRect().height || SVG_H;
+  const dyInSvgUnits = dy * (SVG_H / renderedHeight);
+  const startStaffY = staffYForFrequency(state.drag.startFreq);
+  const rawFreq = frequencyAtStaffY(startStaffY - dyInSvgUnits);
+  const clamped = Math.max(F_MIN, Math.min(F_MAX, rawFreq));
+  const { note, cents } = nearestNote(clamped, getActiveNotes());
+  const targetCents = toCents(clamped, state.targetNote.freq);
+  const pitchSide = targetCents < -8 ? -1 : targetCents > 8 ? 1 : 0;
+  if (pitchSide && state.lastPitchSide && pitchSide !== state.lastPitchSide) {
+    state.crossings += 1;
+  }
+  if (pitchSide) state.lastPitchSide = pitchSide;
+
+  if (note && cents < SNAP_CENTS) {
+    state.noteFreq = note.freq;
+    userOsc.frequency.setValueAtTime(note.freq, ctx.currentTime);
+    userHarmonicOsc.frequency.setValueAtTime(note.freq * 2, ctx.currentTime);
+    userPresenceOsc.frequency.setValueAtTime(note.freq * 3, ctx.currentTime);
+
+    if (state.lastSnap !== note.name) {
+      state.lastSnap = note.name;
+      state.snappedNote = note;
+      state.snapFlash = true;
+      if (EXPERIMENT.snapCue) playSnapSound(note.freq);
+      render();
+
+      window.setTimeout(() => {
+        state.snapFlash = false;
+        render();
+      }, 120);
+      return;
+    }
+  } else {
+    state.noteFreq = clamped;
+    userOsc.frequency.setValueAtTime(clamped, ctx.currentTime);
+    userHarmonicOsc.frequency.setValueAtTime(clamped * 2, ctx.currentTime);
+    userPresenceOsc.frequency.setValueAtTime(clamped * 3, ctx.currentTime);
+    state.snappedNote = null;
+    state.lastSnap = null;
+  }
+
+  render();
+}
+
+function onPointerUp(event) {
+  if (!state.drag) return;
+
+  event.preventDefault();
+  state.drag = null;
+
+  if (!state.audio) return;
+  if (state.phase === "playing") {
+    const targetFreq = state.audio.targetOsc.frequency.value;
+    const isCorrect = state.snappedNote && Math.abs(Math.log2(state.snappedNote.freq) - Math.log2(targetFreq)) < 0.01;
+    if (isCorrect) {
+      window.setTimeout(setCorrect, 80);
+    } else {
+      setIncorrect();
+    }
+  }
+}
+
+el.mainButton.addEventListener("click", () => {
+  if (state.phase === "idle" || state.phase === "complete") {
+    startGame();
+  } else if (state.phase === "playing") {
+    // Skipping a question counts as an incorrect answer.
+    recordQuestion(false, true);
+    nextQuestion();
+  } else {
+    nextQuestion();
+  }
+});
+el.replayIncorrectButton.addEventListener("click", () => {
+  if (state.phase === "incorrect") playIncorrectFeedback();
+});
+el.score.addEventListener("pointerdown", onPointerDown);
+el.score.addEventListener("pointermove", onPointerMove);
+el.score.addEventListener("pointerup", onPointerUp);
+el.score.addEventListener("pointercancel", onPointerUp);
+el.scoreWrap.addEventListener("touchstart", (event) => {
+  if (state.drag) event.preventDefault();
+}, { passive: false });
+el.scoreWrap.addEventListener("touchmove", (event) => {
+  if (state.drag) event.preventDefault();
+}, { passive: false });
+window.addEventListener("pagehide", endRound);
+
+render();
+
+    </script>
+  </body>
+</html>

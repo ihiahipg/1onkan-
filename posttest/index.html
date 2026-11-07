@@ -1015,7 +1015,7 @@ function renderUserNote() {
     }));
   }
 
-  const noteColor = state.phase === "correct" ? "#3ddc66" : "#eeeeee";
+  const noteColor = !EXPERIMENT.testMode && state.phase === "correct" ? "#3ddc66" : "#eeeeee";
   group.append(svgElement("line", {
     x1: RAIL_X + 12, y1: userY, x2: RAIL_X + 12, y2: userY - 38,
     stroke: noteColor, "stroke-width": 2,

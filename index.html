@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="ja">
+<html lang="ja" data-group="A" data-mode="training">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -29,6 +29,24 @@ button,
 input {
   font: inherit;
 }
+.pilot-entry {
+  width: min(100%, 460px);
+  margin: 0 auto 10px;
+  padding: 10px 12px;
+  border: 1px solid #303632;
+  border-radius: 10px;
+  background: #101311;
+  text-align: left;
+}
+.pilot-entry[hidden] { display: none; }
+.pilot-entry label { display: block; margin-bottom: 5px; color: #ddd; font-size: 12px; }
+.pilot-entry input { width: 100%; min-height: 38px; padding: 7px 10px; border: 1px solid #555; border-radius: 6px; background: #191c1a; color: #f4f4f4; }
+.pilot-entry p { margin: 6px 0 0; color: #929a95; font-size: 10px; line-height: 1.45; }
+#pilotDataStatus.error { color: #ffb19f; }
+.pilot-entry button { margin-top: 8px; }
+.pilot-entry button[hidden] { display: none; }
+.button:disabled { opacity: .55; cursor: wait; }
+
 
 .app-shell {
   min-height: 100vh;
@@ -267,15 +285,6 @@ h1 {
 }
 
     </style>
-    <!-- Google tag (gtag.js) -->
-<script async src="https://www.googletagmanager.com/gtag/js?id=G-2R2P909NBC"></script>
-<script>
-  window.dataLayer = window.dataLayer || [];
-  function gtag(){dataLayer.push(arguments);}
-  gtag('js', new Date());
-
-  gtag('config', 'G-2R2P909NBC');
-</script>
   </head>
   <body>
     <main class="app-shell">
@@ -327,6 +336,13 @@ h1 {
         </details>
       </section>
 
+      <section id="pilotEntry" class="pilot-entry" hidden aria-label="研究データの送信">
+        <label for="participantCode">研究参加コード</label>
+        <input id="participantCode" type="password" inputmode="text" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="例：ABCD-EFGH-JKLM-NPQR" />
+        <p>回答音程、正誤、回答時間、基準音・お題の音を跨いだ回数と音の動きを研究用に送信します。氏名は入力しません。事前に説明を受けた参加者のみコードを入力してください。</p>
+        <p id="pilotDataStatus" role="status" aria-live="polite"></p>
+        <button id="retryPilotUpload" class="button" type="button" hidden>未送信データを再送</button>
+      </section>
       <div class="actions">
         <button id="mainButton" class="button button-primary" type="button">スタート</button>
       </div>
@@ -334,6 +350,8 @@ h1 {
       <p class="note">音の高さは周波数の対数スケールに基づいています</p>
     </main>
 
+    <script src="./pilot-data-config.js"></script>
+    <script src="./pilot-data.js"></script>
     <script>
 const REFERENCE_FREQUENCIES = [261.63, 293.66, 329.63, 349.23, 392.0, 440.0, 493.88, 523.25];
 const PITCH_CLASS_NAMES = ["ド", "ド♯", "レ", "レ♯", "ミ", "ファ", "ファ♯", "ソ", "ソ♯", "ラ", "ラ♯", "シ"];
@@ -358,6 +376,8 @@ const GROUP_CONFIG = {
   D: { feedback: false, sliderSound: false },
 };
 const GROUP = (document.documentElement.dataset.group || "A").toUpperCase();
+const STUDY_MODE = document.documentElement.dataset.mode || "training";
+const PILOT_APP_VERSION = window.PILOT_DATA_CONFIG?.appVersion || "pilot-v1";
 const EXPERIMENT = GROUP_CONFIG[GROUP] || GROUP_CONFIG.A;
 const HISTORY_STORAGE_KEY = `pitchTrainerRelativeHistoryV1-${GROUP}`;
 const ADAPTIVE_MIN_TOTAL = 20;
@@ -367,9 +387,9 @@ const RELATIVE_OFFSETS = Array.from({ length: 25 }, (_, index) => index - 12);
 let F_MIN = REFERENCE_FREQUENCIES[6] / 2;
 let F_MAX = REFERENCE_FREQUENCIES[6] * 2;
 
-function loadHistory() {
+function loadHistoryFromKey(key) {
   try {
-    const stored = window.localStorage.getItem(HISTORY_STORAGE_KEY);
+    const stored = window.localStorage.getItem(key);
     if (!stored) return [];
     const parsed = JSON.parse(stored);
     return Array.isArray(parsed) ? parsed.filter((item) =>
@@ -380,6 +400,10 @@ function loadHistory() {
   } catch {
     return null;
   }
+}
+
+function loadHistory() {
+  return loadHistoryFromKey(HISTORY_STORAGE_KEY);
 }
 
 const loadedHistory = loadHistory();
@@ -402,11 +426,22 @@ const activeShotOscillators = new Set(); let currentReferenceNote = null; let pr
   lastSnap: null,
   previousTargetName: null,
   history: loadedHistory || [],
+  historyStorageKey: HISTORY_STORAGE_KEY,
   storageError: loadedHistory === null,
   roundStartedAt: 0,
   crossings: 0,
   lastPitchSide: 0,
   recordedThisRound: false,
+  sessionId: null,
+  studyCode: "",
+  referenceCrossings: 0,
+  lastReferenceSide: 0,
+  movementTrace: [],
+  lastTraceAt: 0,
+  firstMoveMs: null,
+  timeToTargetMs: null,
+  maxPostTargetDeviationCents: null,
+  snapCount: 0,
   promptPhase: "idle",
   promptTimers: [],
 };
@@ -427,7 +462,11 @@ const el = {
   feedbackRows: document.querySelector("#feedbackRows"),
   adaptiveInfo: document.querySelector("#adaptiveInfo"),
   storageNote: document.querySelector("#storageNote"),
+  participantCode: document.querySelector("#participantCode"),
+  pilotDataStatus: document.querySelector("#pilotDataStatus"),
+  retryPilotUpload: document.querySelector("#retryPilotUpload"),
 };
+window.PilotStudyData.initialize();
 
 function staffPositionForMidi(midi) {
   const pitchClass = ((Math.round(midi) % 12) + 12) % 12;
@@ -760,7 +799,15 @@ function startQuestion() {
   state.lastSnap = null;
   state.roundStartedAt = performance.now();
   state.crossings = 0;
+  state.referenceCrossings = 0;
   state.lastPitchSide = 0;
+  state.lastReferenceSide = 0;
+  state.movementTrace = [];
+  state.lastTraceAt = 0;
+  state.firstMoveMs = null;
+  state.timeToTargetMs = null;
+  state.maxPostTargetDeviationCents = null;
+  state.snapCount = 0;
   state.recordedThisRound = false;
 
   // Play the reference first, then the target once. The target is silent while
@@ -805,27 +852,60 @@ function startQuestion() {
   render();
 }
 
+function frequencyToMidi(freq) {
+  return 69 + 12 * Math.log2(freq / 440);
+}
+
 function recordQuestion(correct, skipped = false) {
   if (state.recordedThisRound || !state.targetNote) return;
   state.recordedThisRound = true;
+  const now = performance.now();
+  if (state.sessionId && state.movementTrace.length < 900) {
+    state.movementTrace.push({ t_ms: Math.max(0, Math.round(now - state.roundStartedAt)), midi: Number(frequencyToMidi(state.noteFreq).toFixed(3)) });
+  }
+  const seconds = Math.max(0, (now - state.roundStartedAt) / 1000);
   const result = {
     noteName: state.targetNote.name,
     label: state.targetNote.label,
     correct,
     skipped,
-    seconds: Math.max(0, (performance.now() - state.roundStartedAt) / 1000),
+    seconds,
     crossings: state.crossings,
     savedAt: new Date().toISOString(),
   };
   state.history.push(result);
   try {
-    window.localStorage.setItem(HISTORY_STORAGE_KEY, JSON.stringify(state.history));
+    window.localStorage.setItem(state.historyStorageKey, JSON.stringify(state.history));
     state.storageError = false;
   } catch {
     state.storageError = true;
   }
-}
 
+  if (state.sessionId && state.studyCode) {
+    const referenceMidi = frequencyToMidi(currentReferenceNote.freq);
+    const targetMidi = frequencyToMidi(state.targetNote.freq);
+    window.PilotStudyData.submitTrial({
+      code: state.studyCode,
+      sessionId: state.sessionId,
+      questionNumber: state.questionNumber,
+      trial: {
+        referenceMidi: Number(referenceMidi.toFixed(3)),
+        targetMidi: Number(targetMidi.toFixed(3)),
+        answerMidi: Number(frequencyToMidi(state.noteFreq).toFixed(3)),
+        correct,
+        skipped,
+        responseTimeMs: Math.min(600000, Math.round(seconds * 1000)),
+        targetCrossings: state.crossings,
+        referenceCrossings: state.referenceCrossings,
+        firstMoveMs: state.firstMoveMs === null ? null : Math.min(600000, state.firstMoveMs),
+        timeToTargetMs: state.timeToTargetMs === null ? null : Math.min(600000, state.timeToTargetMs),
+        maxPostTargetDeviationCents: state.maxPostTargetDeviationCents === null ? null : Number(state.maxPostTargetDeviationCents.toFixed(1)),
+        snapCount: state.snapCount,
+        movementTrace: state.movementTrace,
+      },
+    });
+  }
+}
 function setCorrect() {
   if (state.phase !== "playing") return;
   recordQuestion(true);
@@ -854,6 +934,10 @@ function setIncorrect() {
 }
 
 function finishGame() {
+  if (state.sessionId && state.studyCode) {
+    window.PilotStudyData.finishSession({ code: state.studyCode, sessionId: state.sessionId });
+    if (el.participantCode) el.participantCode.value = "";
+  }
   state.phase = "complete";
   endRound();
   render();
@@ -868,7 +952,66 @@ function nextQuestion() {
   startQuestion();
 }
 
+function createPilotUuid() {
+  const bytes = window.crypto.getRandomValues(new Uint8Array(16));
+  bytes[6] = (bytes[6] & 0x0f) | 0x40;
+  bytes[8] = (bytes[8] & 0x3f) | 0x80;
+  const hex = Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("");
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+}
+
 function startGame() {
+  if (!window.PilotStudyData.enabled) {
+    startGameNow();
+    return;
+  }
+  const code = el.participantCode?.value.trim() || "";
+  if (!code) {
+    window.PilotStudyData.setStatus("研究参加コードを入力してください。", true);
+    el.participantCode?.focus();
+    return;
+  }
+  const sessionId = window.crypto.randomUUID
+    ? window.crypto.randomUUID()
+    : createPilotUuid();
+  const audio = getAudio();
+  const audioReady = audio.ctx.resume().catch(() => {});
+  el.mainButton.disabled = true;
+  window.PilotStudyData.startSession({
+    code,
+    mode: STUDY_MODE,
+    pageGroup: ["A", "B", "C", "D"].includes(GROUP) ? GROUP : null,
+    sessionId,
+    appVersion: PILOT_APP_VERSION,
+  }).then(async (session) => {
+    if (STUDY_MODE === "training" && session.assignedGroup !== GROUP) {
+      throw new Error("参加コードの割当群とページが一致しません。割当群のURLを開いてください。");
+    }
+    state.sessionId = session.sessionId;
+    state.studyCode = code;
+    const normalizedCode = code.toUpperCase().replace(/[\s-]/g, "");
+    const codeDigest = await window.crypto.subtle.digest("SHA-256", new TextEncoder().encode(normalizedCode));
+    const localCodeHash = Array.from(new Uint8Array(codeDigest), (byte) => byte.toString(16).padStart(2, "0")).join("");
+    state.historyStorageKey = `${HISTORY_STORAGE_KEY}-${localCodeHash}`;
+    const participantHistory = loadHistoryFromKey(state.historyStorageKey);
+    state.history = participantHistory || [];
+    state.storageError = participantHistory === null;
+    await audioReady;
+    render();
+    startGameNow();
+  }).catch((error) => {
+    const serverAssigned = error.serverResult?.assignedGroup;
+    const message = serverAssigned
+      ? `この参加コードは${serverAssigned}群です。${serverAssigned.toLowerCase()}群のURLを開いてください。`
+      : (error.message || "セッションを開始できませんでした。先生へ知らせてください。");
+    window.PilotStudyData.setStatus(message, true);
+    el.statusText.textContent = message;
+  }).finally(() => {
+    el.mainButton.disabled = false;
+  });
+}
+
+function startGameNow() {
   state.streak = 0;
   state.correctCount = 0;
   state.questionNumber = 0;
@@ -1059,7 +1202,8 @@ function render() {
   el.trainerCard.classList.toggle("correct", state.correctAnim);
   el.trainerCard.classList.toggle("incorrect", state.phase === "incorrect");
   el.scoreWrap.hidden = state.phase === "complete";
-  const showFeedback = EXPERIMENT.feedback && (state.phase === "complete" || (state.phase === "idle" && state.history.length > 0));
+  const showFeedback = EXPERIMENT.feedback && (!window.PilotStudyData.enabled || Boolean(state.studyCode)) &&
+    (state.phase === "complete" || (state.phase === "idle" && state.history.length > 0));
   el.feedback.hidden = !showFeedback;
   el.statusText.classList.toggle("correct", state.phase === "correct");
   el.statusText.classList.toggle("incorrect", state.phase === "incorrect");
@@ -1282,7 +1426,17 @@ function onPointerDown(event) {
   state.drag = { startY: event.clientY, startFreq };
   const startCents = toCents(startFreq, state.targetNote.freq);
   state.lastPitchSide = startCents < -8 ? -1 : startCents > 8 ? 1 : 0;
+  const referenceCents = toCents(startFreq, currentReferenceNote.freq);
+  state.lastReferenceSide = referenceCents < -8 ? -1 : referenceCents > 8 ? 1 : 0;
 
+}
+
+function recordMovementSample(freq, now, force = false) {
+  if (!state.sessionId || state.movementTrace.length >= 900) return;
+  const elapsed = Math.min(600000, Math.max(0, Math.round(now - state.roundStartedAt)));
+  if (!force && state.movementTrace.length && now - state.lastTraceAt < 100) return;
+  state.movementTrace.push({ t_ms: elapsed, midi: Number(frequencyToMidi(freq).toFixed(3)) });
+  state.lastTraceAt = now;
 }
 
 function onPointerMove(event) {
@@ -1298,7 +1452,20 @@ function onPointerMove(event) {
   const rawFreq = frequencyAtStaffY(startStaffY - dyInSvgUnits);
   const clamped = Math.max(F_MIN, Math.min(F_MAX, rawFreq));
   const { note, cents } = nearestNote(clamped, getActiveNotes());
+  const now = performance.now();
+  const elapsedMs = Math.max(0, Math.round(now - state.roundStartedAt));
+  if (state.firstMoveMs === null) state.firstMoveMs = elapsedMs;
   const targetCents = toCents(clamped, state.targetNote.freq);
+  const referenceCents = toCents(clamped, currentReferenceNote.freq);
+  const referenceSide = referenceCents < -8 ? -1 : referenceCents > 8 ? 1 : 0;
+  if (referenceSide && state.lastReferenceSide && referenceSide !== state.lastReferenceSide) {
+    state.referenceCrossings += 1;
+  }
+  if (referenceSide) state.lastReferenceSide = referenceSide;
+  if (state.timeToTargetMs === null && Math.abs(targetCents) <= 50) state.timeToTargetMs = elapsedMs;
+  if (state.timeToTargetMs !== null) {
+    state.maxPostTargetDeviationCents = Math.max(state.maxPostTargetDeviationCents || 0, Math.abs(targetCents));
+  }
   const pitchSide = targetCents < -8 ? -1 : targetCents > 8 ? 1 : 0;
   if (pitchSide && state.lastPitchSide && pitchSide !== state.lastPitchSide) {
     state.crossings += 1;
@@ -1313,6 +1480,9 @@ function onPointerMove(event) {
 
     if (state.lastSnap !== note.name) {
       state.lastSnap = note.name;
+      state.snapCount += 1;
+      if (note.name === state.targetNote.name && state.timeToTargetMs === null) state.timeToTargetMs = elapsedMs;
+      recordMovementSample(note.freq, now);
       state.snappedNote = note;
       state.snapFlash = true;
       if (EXPERIMENT.sliderSound) playSnapSound(note.freq);
@@ -1325,6 +1495,7 @@ function onPointerMove(event) {
       return;
     }
   } else {
+    recordMovementSample(clamped, now);
     state.noteFreq = clamped;
     userOsc.frequency.setValueAtTime(clamped, ctx.currentTime);
     userHarmonicOsc.frequency.setValueAtTime(clamped * 2, ctx.currentTime);
@@ -1341,6 +1512,7 @@ function onPointerUp(event) {
 
   event.preventDefault();
   state.drag = null;
+  recordMovementSample(state.noteFreq, performance.now(), true);
 
   if (!state.audio) return;
   if (state.phase === "playing") {

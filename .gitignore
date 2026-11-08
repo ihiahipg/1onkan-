@@ -1,0 +1,9 @@
+.env
+.env.*
+!.env.example
+supabase/functions/.env
+supabase/.temp/
+pilot_codes_private.csv
+pilot_participants.sql
+ids_private.csv
+insert_participants.sql

@@ -1,0 +1,4 @@
+[functions.pilot-data]
+# The browser uses a high-entropy participant code rather than a Supabase login.
+# The function validates that code itself before writing anything.
+verify_jwt = false

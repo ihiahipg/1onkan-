@@ -6,6 +6,33 @@
     (publishableKey.startsWith("sb_publishable_") || publishableKey.startsWith("eyJ"));
   const endpoint = enabled ? `${projectUrl}/functions/v1/pilot-data` : "";
   const OUTBOX_KEY = "pitchTrainerPilotOutboxV1";
+  const PARTICIPANT_CODE_KEY = "pitchTrainerPilotParticipantCodeV1";
+
+  function getSavedParticipantCode() {
+    try {
+      return localStorage.getItem(PARTICIPANT_CODE_KEY) || "";
+    } catch {
+      return "";
+    }
+  }
+
+  function saveParticipantCode(code) {
+    try {
+      localStorage.setItem(PARTICIPANT_CODE_KEY, code);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  function clearSavedParticipantCode() {
+    try {
+      localStorage.removeItem(PARTICIPANT_CODE_KEY);
+      return true;
+    } catch {
+      return false;
+    }
+  }
 
   function setStatus(message, isError = false) {
     const node = document.querySelector("#pilotDataStatus");
@@ -78,7 +105,7 @@
     return remaining.length;
   }
 
-  async function startSession({ code, mode, pageGroup, sessionId, appVersion }) {
+  async function startSession({ code, mode, pageGroup, sessionId, appVersion, musicExperienceLevel }) {
     const pendingCount = await flushOutbox(code);
     const result = await post({
       action: "start_session",
@@ -87,6 +114,7 @@
       pageGroup,
       sessionId,
       appVersion,
+      musicExperienceLevel: Number(musicExperienceLevel) || null,
     });
     if (pendingCount) setStatus(`${pendingCount}件の前回データが未送信です。前回と同じ参加コードで再試行してください。`, true);
     else setStatus("参加コードを確認しました。回答と音の動きは送信されます。");
@@ -131,9 +159,23 @@
   function initialize() {
     const panel = document.querySelector("#pilotEntry");
     if (!panel) return;
-    panel.hidden = !enabled;
-    if (enabled) {
-      setStatus("研究参加コードを入力してください。データ収集について説明を受けた参加者のみ利用してください。");
+    panel.hidden = false;
+    if (!enabled) {
+      setStatus("研究データ接続を確認できません。参加コードを確認できないため練習を開始できません。先生に設定を確認してください。", true);
+      return;
+    }
+    {
+      const input = document.querySelector("#participantCode");
+      const savedCode = getSavedParticipantCode();
+      if (input && savedCode) input.value = savedCode;
+      setStatus(savedCode
+        ? "この端末に参加コードを保存しています。本人のコードであることを確認して開始してください。"
+        : "研究参加コードを入力してください。確認できるまで練習は始まりません。");
+      document.querySelector("#clearParticipantCode")?.addEventListener("click", () => {
+        if (!clearSavedParticipantCode()) return setStatus("端末の保存情報を消去できませんでした。", true);
+        if (input) input.value = "";
+        setStatus("この端末から参加コードを消去しました。次回はコードの確認が必要です。");
+      });
       const retry = document.querySelector("#retryPilotUpload");
       if (retry) retry.hidden = readOutbox().length === 0;
       retry?.addEventListener("click", async () => {
@@ -148,5 +190,14 @@
     }
   }
 
-  window.PilotStudyData = { enabled, initialize, setStatus, startSession, submitTrial, finishSession };
+  window.PilotStudyData = {
+    enabled,
+    initialize,
+    setStatus,
+    getSavedParticipantCode,
+    saveParticipantCode,
+    startSession,
+    submitTrial,
+    finishSession,
+  };
 })();

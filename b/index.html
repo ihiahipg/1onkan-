@@ -40,7 +40,7 @@ input {
 }
 .pilot-entry[hidden] { display: none; }
 .pilot-entry label { display: block; margin-bottom: 5px; color: #ddd; font-size: 12px; }
-.pilot-entry input { width: 100%; min-height: 38px; padding: 7px 10px; border: 1px solid #555; border-radius: 6px; background: #191c1a; color: #f4f4f4; }
+.pilot-entry input, .pilot-entry select { width: 100%; min-height: 38px; padding: 7px 10px; border: 1px solid #555; border-radius: 6px; background: #191c1a; color: #f4f4f4; }
 .pilot-entry p { margin: 6px 0 0; color: #929a95; font-size: 10px; line-height: 1.45; }
 #pilotDataStatus.error { color: #ffb19f; }
 .pilot-entry button { margin-top: 8px; }
@@ -339,7 +339,16 @@ h1 {
       <section id="pilotEntry" class="pilot-entry" hidden aria-label="研究データの送信">
         <label for="participantCode">研究参加コード</label>
         <input id="participantCode" type="password" inputmode="text" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="例：ABCD-EFGH-JKLM-NPQR" />
-        <p>回答音程、正誤、回答時間、基準音・お題の音を跨いだ回数と音の動きを研究用に送信します。氏名は入力しません。事前に説明を受けた参加者のみコードを入力してください。</p>
+        <label for="musicExperienceLevel">音楽経験（最初に一度だけ登録）</label>
+        <select id="musicExperienceLevel" autocomplete="off">
+          <option value="">選択してください</option>
+          <option value="1">1：経験が豊富</option>
+          <option value="2">2：少し経験がある</option>
+          <option value="3">3：経験がない</option>
+        </select>
+        <button id="clearParticipantCode" class="button" type="button">この端末の保存IDを解除</button>
+        <p>確認済みの参加コードはこの端末のブラウザーに保存され、事前テスト・練習・事後テストで共通利用されます。共有端末では利用後に保存IDを解除してください。</p>
+        <p>回答音程、正誤、回答時間、基準音・お題の音を跨いだ回数と音の動きを研究用に送信します。氏名は入力しません。</p>
         <p id="pilotDataStatus" role="status" aria-live="polite"></p>
         <button id="retryPilotUpload" class="button" type="button" hidden>未送信データを再送</button>
       </section>
@@ -463,6 +472,7 @@ const el = {
   adaptiveInfo: document.querySelector("#adaptiveInfo"),
   storageNote: document.querySelector("#storageNote"),
   participantCode: document.querySelector("#participantCode"),
+  musicExperienceLevel: document.querySelector("#musicExperienceLevel"),
   pilotDataStatus: document.querySelector("#pilotDataStatus"),
   retryPilotUpload: document.querySelector("#retryPilotUpload"),
 };
@@ -936,7 +946,6 @@ function setIncorrect() {
 function finishGame() {
   if (state.sessionId && state.studyCode) {
     window.PilotStudyData.finishSession({ code: state.studyCode, sessionId: state.sessionId });
-    if (el.participantCode) el.participantCode.value = "";
   }
   state.phase = "complete";
   endRound();
@@ -962,15 +971,16 @@ function createPilotUuid() {
 
 function startGame() {
   if (!window.PilotStudyData.enabled) {
-    startGameNow();
+    window.PilotStudyData.setStatus("研究データ接続を確認できないため開始できません。通信設定を先生に確認してください。", true);
     return;
   }
-  const code = el.participantCode?.value.trim() || "";
+  const code = el.participantCode?.value.trim() || window.PilotStudyData.getSavedParticipantCode();
   if (!code) {
     window.PilotStudyData.setStatus("研究参加コードを入力してください。", true);
     el.participantCode?.focus();
     return;
   }
+  const musicExperienceLevel = el.musicExperienceLevel?.value || null;
   const sessionId = window.crypto.randomUUID
     ? window.crypto.randomUUID()
     : createPilotUuid();
@@ -983,9 +993,14 @@ function startGame() {
     pageGroup: ["A", "B", "C", "D"].includes(GROUP) ? GROUP : null,
     sessionId,
     appVersion: PILOT_APP_VERSION,
+    musicExperienceLevel,
   }).then(async (session) => {
     if (STUDY_MODE === "training" && session.assignedGroup !== GROUP) {
       throw new Error("参加コードの割当群とページが一致しません。割当群のURLを開いてください。");
+    }
+    if (el.musicExperienceLevel) el.musicExperienceLevel.value = String(session.musicExperienceLevel);
+    if (!window.PilotStudyData.saveParticipantCode(code)) {
+      throw new Error("この端末に参加コードを保存できません。ブラウザーの保存設定を確認してください。");
     }
     state.sessionId = session.sessionId;
     state.studyCode = code;
@@ -1003,7 +1018,9 @@ function startGame() {
     const serverAssigned = error.serverResult?.assignedGroup;
     const message = serverAssigned
       ? `この参加コードは${serverAssigned}群です。${serverAssigned.toLowerCase()}群のURLを開いてください。`
-      : (error.message || "セッションを開始できませんでした。先生へ知らせてください。");
+      : (error.message === "music_experience_required"
+        ? "音楽経験を選択してください。"
+        : (error.message || "セッションを開始できませんでした。先生へ知らせてください。"));
     window.PilotStudyData.setStatus(message, true);
     el.statusText.textContent = message;
   }).finally(() => {

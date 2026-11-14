@@ -5,5 +5,11 @@ supabase/functions/.env
 supabase/.temp/
 pilot_codes_private.csv
 pilot_participants.sql
+pilot_ad_codes_private.csv
+pilot_ad_participants.sql
+pilot_ad_roster_crosswalk.csv
+pilot_reset_ad_codes_private.csv
+pilot_reset_ad_roster_crosswalk.csv
+pilot_reset_ad_participants.sql
 ids_private.csv
 insert_participants.sql

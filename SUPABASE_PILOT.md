@@ -5,6 +5,7 @@
 - A randomly generated participant code maps to one fixed A/B/C/D assignment. The database stores an HMAC of the code, not the code itself. Pilot-only records use the `pilot_participants` table so they cannot collide with any existing `participants` table.
 - Every session records mode (`pretest`, `training`, `posttest`), assigned group, app version, and server start/end times.
 - Every trial records reference/target/answer pitch (MIDI semitones), signed and absolute error, exact correctness, skip status, response time, baseline crossings, target crossings, first movement, first entry into the target's ±50-cent zone, snap count, maximum post-entry deviation, and a movement trace sampled at most every 100 ms (maximum 900 samples per question).
+- `pilot_batch` separates the original four-group code set from the later A/D 10-person pilot. The A/D cohort has its own pepper secret and participant UUIDs; the original codes remain valid.
 - The browser outbox stores failed trial uploads locally without storing the participant code. A participant must re-enter the same code to retry those uploads.
 - No names, email addresses, or class rosters belong in this database. Keep any code-to-roster mapping separately under the school's control.
 
@@ -26,6 +27,18 @@ The static site cannot stop a determined learner from editing their own browser 
 8. Deploy the function using `supabase functions deploy pilot-data`. Its `verify_jwt = false` setting is intentional because learners use participant codes rather than Supabase accounts; the function itself validates each code before database access.
 9. Copy only the Project URL and Publishable key into `pilot-data-config.js`. Never use a Secret/service-role key there. Confirm the URL is the new pilot project.
 10. Publish the app. Start with a small supervised dry run using one code per group. Verify one pretest, one training session at that code's group URL, and one posttest per code. Check the tables and export query before giving out the full pilot set.
+
+## Add a separate A/D 5+5 pilot batch
+
+The repository has an additive A/D batch workflow. It does not overwrite the original four-group pepper or existing participants.
+
+1. Apply all pending migrations with `supabase db push --remote --dry-run`, review the listed migration, then run `supabase db push --remote`. Migration `202611090001_pilot_batches.sql` adds a batch label.
+2. From this folder, run `python3 scripts/setup_ad_pilot_codes.py`. It sets a new Edge Function secret `PILOT_CODE_PEPPER_AD` without changing `PILOT_CODE_PEPPER`, then creates 10 codes balanced A=5/D=5 with random participant UUIDs. It refuses to overwrite outputs.
+3. Keep `pilot_ad_codes_private.csv` and `pilot_ad_roster_crosswalk.csv` encrypted and outside GitHub. Fill in attendance numbers only in the local crosswalk under school-approved access controls. `pilot_ad_participants.sql` contains hashes, UUIDs, groups, and batch label but no participant codes or attendance numbers; run it once in the SQL Editor.
+4. Deploy `supabase functions deploy pilot-data` so it checks the original and A/D pepper. Confirm old and new code validation in a dry run, then distribute only the corresponding A/D group link and code privately.
+5. In SQL Editor, run `supabase/queries/verify_pilot_seed.sql` and `supabase/queries/pilot_export.sql`. Filter/report by `pilot_batch`; do not combine the old four-group and A/D cohorts in one estimate.
+
+The A/D protocol draft and its pre-specified primary outcome are in `AD_PILOT_PROTOCOL_2026-11-09.md`.
 
 ## What to review before students use it
 

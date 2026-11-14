@@ -74,18 +74,29 @@ Deno.serve(async (request) => {
     const body = await request.json();
     if (!body || typeof body !== "object") return json({ error: "invalid_json" }, 400, cors);
     const code = normalizeCode((body as Record<string, unknown>).participantCode);
-    const pepper = Deno.env.get("PILOT_CODE_PEPPER");
-    if (!code || !pepper) return json({ error: "invalid_participant_code" }, 401, cors);
+    const peppers = [Deno.env.get("PILOT_CODE_PEPPER"), Deno.env.get("PILOT_CODE_PEPPER_AD")]
+      .filter((value): value is string => Boolean(value));
+    if (!code || peppers.length === 0) return json({ error: "invalid_participant_code" }, 401, cors);
 
     const admin = getAdminClient();
-    const codeHash = await hmacCode(code, pepper);
-    const { data: participant, error: participantError } = await admin
-      .from("pilot_participants")
-      .select("id, assigned_group")
-      .eq("code_hash", codeHash)
-      .eq("active", true)
-      .maybeSingle();
-    if (participantError || !participant) return json({ error: "invalid_participant_code" }, 401, cors);
+    let participant: { id: string; assigned_group: string } | null = null;
+    let lookupFailed = false;
+    for (const pepper of peppers) {
+      const codeHash = await hmacCode(code, pepper);
+      const result = await admin
+        .from("pilot_participants")
+        .select("id, assigned_group")
+        .eq("code_hash", codeHash)
+        .eq("active", true)
+        .maybeSingle();
+      if (result.error) {
+        lookupFailed = true;
+        break;
+      }
+      participant = result.data;
+      if (participant) break;
+    }
+    if (lookupFailed || !participant) return json({ error: "invalid_participant_code" }, 401, cors);
 
     const action = (body as Record<string, unknown>).action;
     if (action === "start_session") {
@@ -93,6 +104,7 @@ Deno.serve(async (request) => {
       const mode = (body as Record<string, unknown>).mode;
       const pageGroup = (body as Record<string, unknown>).pageGroup;
       const appVersion = (body as Record<string, unknown>).appVersion;
+      const submittedExperience = (body as Record<string, unknown>).musicExperienceLevel;
       if (!validUuid(sessionId) || !["pretest", "training", "posttest"].includes(String(mode))) {
         return json({ error: "invalid_session" }, 400, cors);
       }
@@ -103,12 +115,55 @@ Deno.serve(async (request) => {
         return json({ error: "wrong_group_url", assignedGroup: participant.assigned_group }, 403, cors);
       }
 
+      const { data: storedBaseline, error: baselineReadError } = await admin
+        .from("participant_baseline")
+        .select("music_experience_level")
+        .eq("participant_id", participant.id)
+        .maybeSingle();
+      if (baselineReadError) return json({ error: "baseline_read_failed" }, 500, cors);
+      if (!storedBaseline && ![1, 2, 3].includes(Number(submittedExperience))) {
+        return json({ error: "music_experience_required" }, 400, cors);
+      }
+      let experienceLevel = storedBaseline?.music_experience_level ?? Number(submittedExperience);
+      if (!storedBaseline) {
+        const { data: insertedBaseline, error: baselineInsertError } = await admin
+          .from("participant_baseline")
+          .insert({ participant_id: participant.id, music_experience_level: experienceLevel })
+          .select("music_experience_level")
+          .single();
+        if (baselineInsertError) {
+          // Another tab may have completed the first registration concurrently.
+          const { data: racedBaseline, error: racedReadError } = await admin
+            .from("participant_baseline")
+            .select("music_experience_level")
+            .eq("participant_id", participant.id)
+            .maybeSingle();
+          if (racedReadError || !racedBaseline) return json({ error: "baseline_save_failed" }, 500, cors);
+          experienceLevel = racedBaseline.music_experience_level;
+        } else {
+          experienceLevel = insertedBaseline.music_experience_level;
+        }
+      }
+
+      const { data: previousSessions, error: sessionOrderError } = await admin
+        .from("study_sessions")
+        .select("session_number")
+        .eq("participant_id", participant.id)
+        .eq("mode", mode)
+        .order("session_number", { ascending: false })
+        .limit(1);
+      if (sessionOrderError) return json({ error: "session_order_failed" }, 500, cors);
+      const sessionNumber = Number(previousSessions?.[0]?.session_number || 0) + 1;
+      const assessmentWave = `${mode}_${sessionNumber}`;
+
       const { error: insertError } = await admin.from("study_sessions").insert({
         id: sessionId,
         participant_id: participant.id,
         assigned_group: participant.assigned_group,
         mode,
         app_version: appVersion,
+        session_number: sessionNumber,
+        assessment_wave: assessmentWave,
       });
       if (insertError) {
         const { data: existing } = await admin.from("study_sessions")
@@ -119,7 +174,7 @@ Deno.serve(async (request) => {
           return json({ error: "session_create_failed" }, 409, cors);
         }
       }
-      return json({ sessionId, assignedGroup: participant.assigned_group }, 200, cors);
+      return json({ sessionId, assignedGroup: participant.assigned_group, musicExperienceLevel: experienceLevel, sessionNumber, assessmentWave }, 200, cors);
     }
 
     if (action === "submit_trial") {

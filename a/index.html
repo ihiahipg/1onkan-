@@ -1016,11 +1016,18 @@ function startGame() {
     startGameNow();
   }).catch((error) => {
     const serverAssigned = error.serverResult?.assignedGroup;
+    const invalidCode = error.serverResult?.error === "invalid_participant_code";
+    if (invalidCode) {
+      window.PilotStudyData.clearSavedParticipantCode();
+      if (el.participantCode) el.participantCode.value = "";
+    }
     const message = serverAssigned
       ? `この参加コードは${serverAssigned}群です。${serverAssigned.toLowerCase()}群のURLを開いてください。`
-      : (error.message === "music_experience_required"
+      : (invalidCode
+        ? "参加コードを確認できません。以前のコードはリセット済みです。新しいコードを入力してください。"
+        : (error.message === "music_experience_required"
         ? "音楽経験を選択してください。"
-        : (error.message || "セッションを開始できませんでした。先生へ知らせてください。"));
+        : (error.message || "セッションを開始できませんでした。先生へ知らせてください。")));
     window.PilotStudyData.setStatus(message, true);
     el.statusText.textContent = message;
   }).finally(() => {

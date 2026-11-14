@@ -28,6 +28,8 @@
   function clearSavedParticipantCode() {
     try {
       localStorage.removeItem(PARTICIPANT_CODE_KEY);
+      // A reset invalidates queued trials from the previous code set as well.
+      localStorage.removeItem(OUTBOX_KEY);
       return true;
     } catch {
       return false;

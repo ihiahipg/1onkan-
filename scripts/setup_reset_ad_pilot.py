@@ -10,7 +10,7 @@ import tempfile
 EXPECTED_PROJECT_REF = "yshjibfufqdaqipmkadu"
 REPO_ROOT = Path(__file__).resolve().parents[1]
 CLI = Path(os.environ.get("SUPABASE_CLI", "/private/tmp/supabase-bin/supabase"))
-PEPPER_NAME = "PILOT_CODE_PEPPER_AD"
+PEPPER_NAMES = ("PILOT_CODE_PEPPER", "PILOT_CODE_PEPPER_AD")
 OUTPUTS = (
     "pilot_reset_ad_codes_private.csv",
     "pilot_reset_ad_roster_crosswalk.csv",
@@ -41,10 +41,11 @@ def main() -> int:
     try:
         os.fchmod(fd, 0o600)
         with os.fdopen(fd, "w", encoding="utf-8") as handle:
-            handle.write(f"{PEPPER_NAME}={pepper}\n")
+            for name in PEPPER_NAMES:
+                handle.write(f"{name}={pepper}\n")
         env = os.environ.copy()
         env["SUPABASE_TELEMETRY_DISABLED"] = "1"
-        print(f"Rotating {PEPPER_NAME} on the linked pilot project…", flush=True)
+        print("Rotating the old pilot code secrets on the linked pilot project…", flush=True)
         result = subprocess.run([str(CLI), "secrets", "set", "--env-file", str(env_path), "--yes"], cwd=REPO_ROOT, env=env)
         if result.returncode:
             return result.returncode

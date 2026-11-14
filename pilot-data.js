@@ -29,8 +29,6 @@
   function clearSavedParticipantCode() {
     try {
       localStorage.removeItem(PARTICIPANT_CODE_KEY);
-      // A reset invalidates queued trials from the previous code set as well.
-      localStorage.removeItem(OUTBOX_KEY);
       return true;
     } catch {
       return false;
@@ -166,40 +164,47 @@
     }
   }
 
-  function initialize() {
+  function initialize({ entryMode = "saved" } = {}) {
     const panel = document.querySelector("#pilotEntry");
     if (!panel) return;
-    panel.hidden = false;
+    const experience = document.querySelector("#experienceSurvey");
+    const isEnrollmentPage = entryMode === "pretest";
+    if (experience) experience.hidden = !isEnrollmentPage;
     if (!enabled) {
+      panel.hidden = false;
       setStatus(projectUrl !== expectedProjectUrl
         ? "Supabaseの接続先URLが想定と異なります。先生にサイト設定を確認してください。"
         : "研究データ接続を確認できません。参加コードを確認できないため練習を開始できません。先生に設定を確認してください。", true);
       return;
     }
-    {
-      const input = document.querySelector("#participantCode");
-      const savedCode = getSavedParticipantCode();
-      if (input && savedCode) input.value = savedCode;
-      setStatus(savedCode
-        ? "この端末に参加コードを保存しています。本人のコードであることを確認して開始してください。"
-        : "研究参加コードを入力してください。確認できるまで練習は始まりません。");
-      document.querySelector("#clearParticipantCode")?.addEventListener("click", () => {
-        if (!clearSavedParticipantCode()) return setStatus("端末の保存情報を消去できませんでした。", true);
-        if (input) input.value = "";
-        setStatus("この端末から参加コードを消去しました。次回はコードの確認が必要です。");
-      });
-      const retry = document.querySelector("#retryPilotUpload");
-      if (retry) retry.hidden = readOutbox().length === 0;
-      retry?.addEventListener("click", async () => {
-        const code = document.querySelector("#participantCode")?.value.trim();
-        if (!code) return setStatus("参加コードを入力してください。", true);
-        retry.disabled = true;
-        const count = await flushOutbox(code);
-        retry.disabled = false;
-        retry.hidden = count === 0;
-        setStatus(count ? `未送信データが${count}件あります。前回と同じ参加コードを確認してください。` : "未送信データを送信しました。");
-      });
-    }
+    const input = document.querySelector("#participantCode");
+    const savedCode = getSavedParticipantCode();
+    if (input && savedCode) input.value = savedCode;
+    panel.hidden = !isEnrollmentPage && Boolean(savedCode);
+    setStatus(isEnrollmentPage
+      ? "参加コードと音楽経験を確認して、事前テストを開始してください。"
+      : savedCode
+        ? "この端末に保存された参加コードで開始できます。"
+        : "保存された参加コードがありません。事前テストで使ったコードを入力してください。入力後はこの端末に保存されます。");
+    const retry = document.querySelector("#retryPilotUpload");
+    if (retry) retry.hidden = readOutbox().length === 0;
+    retry?.addEventListener("click", async () => {
+      const code = getSavedParticipantCode() || input?.value.trim();
+      if (!code) return setStatus("参加コードを入力してください。", true);
+      retry.disabled = true;
+      const count = await flushOutbox(code);
+      retry.disabled = false;
+      retry.hidden = count === 0;
+      setStatus(count ? `未送信データが${count}件あります。前回と同じ参加コードを確認してください。` : "未送信データを送信しました。");
+    });
+  }
+
+  function showCodeFallback() {
+    const panel = document.querySelector("#pilotEntry");
+    if (!panel) return;
+    panel.hidden = false;
+    const experience = document.querySelector("#experienceSurvey");
+    if (experience) experience.hidden = true;
   }
 
   window.PilotStudyData = {
@@ -209,6 +214,7 @@
     getSavedParticipantCode,
     saveParticipantCode,
     startSession,
+    showCodeFallback,
     submitTrial,
     finishSession,
   };

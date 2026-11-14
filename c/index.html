@@ -228,6 +228,9 @@ h1 {
 .answer-compare[hidden] { display: none; }
 .answer-compare p { margin: 0 0 9px; color: #aaa; font-size: 11px; line-height: 1.5; }
 .answer-compare .button { width: 100%; min-height: 42px; padding: 10px; font-size: 13px; }
+.target-replay-controls { width: min(100%, 320px); margin: 0 auto 8px; }
+.target-replay-controls .button { width: 100%; min-height: 42px; padding: 10px; font-size: 13px; }
+.target-replay-controls[hidden] { display: none; }
 
 .note {
   margin: 10px 0 0;
@@ -308,6 +311,10 @@ h1 {
           >
             <text x="160" y="230" font-size="14" text-anchor="middle" fill="#555555">Safari / Chromeで開いてください</text>
           </svg>
+        </div>
+
+        <div id="targetReplayControls" class="target-replay-controls" hidden>
+          <button id="replayTargetButton" class="button" type="button">お題の音をもう一度聴く</button>
         </div>
 
         <div id="answerFeedback" class="answer-compare" hidden>
@@ -454,6 +461,7 @@ const activeShotOscillators = new Set(); let currentReferenceNote = null; let pr
   snapCount: 0,
   promptPhase: "idle",
   promptTimers: [],
+  sliderReplayRestoreTimer: null,
 };
 
 document.documentElement.classList.add("js-enabled");
@@ -466,6 +474,8 @@ const el = {
   trainerCard: document.querySelector("#trainerCard"),
   mainButton: document.querySelector("#mainButton"),
   answerFeedback: document.querySelector("#answerFeedback"),
+  targetReplayControls: document.querySelector("#targetReplayControls"),
+  replayTargetButton: document.querySelector("#replayTargetButton"),
   replayIncorrectButton: document.querySelector("#replayIncorrectButton"),
   feedback: document.querySelector("#feedback"),
   pitchChart: document.querySelector("#pitchChart"),
@@ -654,8 +664,8 @@ function getAudio() {
   userPresenceOsc.frequency.value = state.noteFreq * 3;
   // A clear, flute-like tone: keep the fundamental dominant and add only a
   // small octave for audibility across classroom speakers.
-  userHarmonicMix.gain.value = 0.12;
-  userPresenceMix.gain.value = 0;
+  userHarmonicMix.gain.value = state.noteFreq < 196 ? 0.34 : state.noteFreq < 262 ? 0.22 : 0.12;
+  userPresenceMix.gain.value = state.noteFreq < 196 ? 0.10 : 0;
   userGain.gain.value = 0;
   userOsc.connect(userGain);
   userHarmonicOsc.connect(userHarmonicMix);
@@ -687,7 +697,7 @@ function getAudio() {
   targetPresenceOsc.start();
 
   state.audio = {
-    ctx, userOsc, userHarmonicOsc, userPresenceOsc, userGain,
+    ctx, userOsc, userHarmonicOsc, userPresenceOsc, userHarmonicMix, userPresenceMix, userGain,
     targetOsc, targetHarmonicOsc, targetPresenceOsc, targetGain,
   };
   return state.audio;
@@ -722,10 +732,55 @@ function playShot(freq, vol, dur, type = "sine", when = 0) {
 }
 
 function playPitchTone(freq, when = 0, duration = 0.95, volume = 0.55) {
-  // Match the slider's sustained sine tone and octave balance so prompt pitches
-  // remain present for their full duration instead of fading like a pluck.
+  // Add a restrained upper harmonic in the low register so small speakers
+  // reproduce a clear pitch even when the fundamental is difficult to hear.
+  const secondHarmonic = freq < 196 ? 0.34 : freq < 262 ? 0.22 : 0.12;
+  const thirdHarmonic = freq < 196 ? 0.10 : 0;
   playShot(freq, volume, duration, "sine", when);
-  playShot(freq * 2, volume * 0.12, duration, "sine", when);
+  playShot(freq * 2, volume * secondHarmonic, duration, "sine", when);
+  if (thirdHarmonic) playShot(freq * 3, volume * thirdHarmonic, duration, "sine", when);
+}
+
+function updateSliderToneSpectrum(freq) {
+  if (!state.audio) return;
+  const { ctx, userHarmonicMix, userPresenceMix } = state.audio;
+  const secondHarmonic = freq < 196 ? 0.34 : freq < 262 ? 0.22 : 0.12;
+  const thirdHarmonic = freq < 196 ? 0.10 : 0;
+  userHarmonicMix.gain.setTargetAtTime(secondHarmonic, ctx.currentTime, 0.025);
+  userPresenceMix.gain.setTargetAtTime(thirdHarmonic, ctx.currentTime, 0.025);
+}
+
+function stopActiveShotTones() {
+  for (const shot of activeShotOscillators) {
+    try { shot.stop(); } catch {}
+  }
+  activeShotOscillators.clear();
+}
+
+function replayTargetSound() {
+  if (!state.targetNote) return;
+  const target = state.targetNote;
+  const audio = getAudio();
+  void audio.ctx.resume();
+  stopActiveShotTones();
+  if (state.sliderReplayRestoreTimer) window.clearTimeout(state.sliderReplayRestoreTimer);
+  const restoreSlider = EXPERIMENT.sliderSound && state.phase === "playing" && state.promptPhase === "adjust";
+  if (restoreSlider) {
+    audio.userGain.gain.cancelScheduledValues(audio.ctx.currentTime);
+    audio.userGain.gain.setTargetAtTime(0, audio.ctx.currentTime, 0.025);
+  }
+  playPitchTone(target.freq, 0, 1.0, 0.55);
+  el.replayTargetButton.disabled = true;
+  state.sliderReplayRestoreTimer = window.setTimeout(() => {
+    el.replayTargetButton.disabled = false;
+    if (restoreSlider && state.targetNote === target && state.phase === "playing" && state.promptPhase === "adjust") {
+      const now = audio.ctx.currentTime;
+      audio.userGain.gain.cancelScheduledValues(now);
+      audio.userGain.gain.setValueAtTime(0, now);
+      audio.userGain.gain.linearRampToValueAtTime(0.3, now + 0.08);
+    }
+    state.sliderReplayRestoreTimer = null;
+  }, 1050);
 }
 
 function playReferenceTone(freq, when = 0, duration = 0.95) {
@@ -767,6 +822,7 @@ function playCorrectSound(freq) {
 
 function endRound() {
   if (!state.audio) return;
+  stopActiveShotTones();
 
   const { ctx, targetGain, userGain } = state.audio;
   for (const gain of [targetGain, userGain]) {
@@ -777,6 +833,9 @@ function endRound() {
 }
 
 function startQuestion() {
+  if (state.sliderReplayRestoreTimer) window.clearTimeout(state.sliderReplayRestoreTimer);
+  state.sliderReplayRestoreTimer = null;
+  el.replayTargetButton.disabled = false;
   const audio = getAudio();
   const pool = getActiveNotes();
   state.promptTimers.forEach((timer) => window.clearTimeout(timer));
@@ -831,6 +890,7 @@ function startQuestion() {
   audio.userOsc.frequency.setValueAtTime(state.noteFreq, audio.ctx.currentTime);
   audio.userHarmonicOsc.frequency.setValueAtTime(state.noteFreq * 2, audio.ctx.currentTime);
   audio.userPresenceOsc.frequency.setValueAtTime(state.noteFreq * 3, audio.ctx.currentTime);
+  updateSliderToneSpectrum(state.noteFreq);
   audio.userGain.gain.cancelScheduledValues(audio.ctx.currentTime);
   audio.userGain.gain.setValueAtTime(0, audio.ctx.currentTime);
   // Use distinct, sustained tones with a gap so the reference and target never overlap.
@@ -1255,6 +1315,7 @@ function render() {
   el.statusText.classList.toggle("correct", state.phase === "correct");
   el.statusText.classList.toggle("incorrect", state.phase === "incorrect");
   el.answerFeedback.hidden = state.phase !== "incorrect";
+  el.targetReplayControls.hidden = !state.targetNote || !(state.phase === "incorrect" || state.phase === "correct" || (state.phase === "playing" && state.promptPhase === "adjust"));
 
   if (state.phase === "idle") {
     el.statusText.textContent = "スタートを押してください";
@@ -1524,6 +1585,7 @@ function onPointerMove(event) {
     userOsc.frequency.setValueAtTime(note.freq, ctx.currentTime);
     userHarmonicOsc.frequency.setValueAtTime(note.freq * 2, ctx.currentTime);
     userPresenceOsc.frequency.setValueAtTime(note.freq * 3, ctx.currentTime);
+    updateSliderToneSpectrum(note.freq);
 
     if (state.lastSnap !== note.name) {
       state.lastSnap = note.name;
@@ -1547,6 +1609,7 @@ function onPointerMove(event) {
     userOsc.frequency.setValueAtTime(clamped, ctx.currentTime);
     userHarmonicOsc.frequency.setValueAtTime(clamped * 2, ctx.currentTime);
     userPresenceOsc.frequency.setValueAtTime(clamped * 3, ctx.currentTime);
+    updateSliderToneSpectrum(clamped);
     state.snappedNote = null;
     state.lastSnap = null;
   }
@@ -1587,6 +1650,7 @@ el.mainButton.addEventListener("click", () => {
 el.replayIncorrectButton.addEventListener("click", () => {
   if (state.phase === "incorrect") playIncorrectFeedback();
 });
+el.replayTargetButton.addEventListener("click", replayTargetSound);
 el.score.addEventListener("pointerdown", onPointerDown);
 el.score.addEventListener("pointermove", onPointerMove);
 el.score.addEventListener("pointerup", onPointerUp);

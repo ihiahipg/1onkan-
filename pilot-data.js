@@ -2,7 +2,8 @@
   const config = window.PILOT_DATA_CONFIG || {};
   const projectUrl = typeof config.projectUrl === "string" ? config.projectUrl.replace(/\/$/, "") : "";
   const publishableKey = typeof config.publishableKey === "string" ? config.publishableKey.trim() : "";
-  const enabled = /^https:\/\/[a-z0-9-]+\.supabase\.co$/i.test(projectUrl) &&
+  const expectedProjectUrl = "https://yshjibfufqdaqipmkadu.supabase.co";
+  const enabled = projectUrl === expectedProjectUrl &&
     (publishableKey.startsWith("sb_publishable_") || publishableKey.startsWith("eyJ"));
   const endpoint = enabled ? `${projectUrl}/functions/v1/pilot-data` : "";
   const OUTBOX_KEY = "pitchTrainerPilotOutboxV1";
@@ -64,11 +65,18 @@
   }
 
   async function post(body) {
-    const response = await fetch(endpoint, {
-      method: "POST",
-      headers: { apikey: publishableKey, "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    });
+    let response;
+    try {
+      response = await fetch(endpoint, {
+        method: "POST",
+        headers: { apikey: publishableKey, "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+    } catch (cause) {
+      const error = new Error("Supabaseに接続できませんでした。ページを再読み込みして、通信環境を確認してください。");
+      error.cause = cause;
+      throw error;
+    }
     const result = await response.json().catch(() => ({}));
     if (!response.ok) {
       const error = new Error(result.error || `HTTP ${response.status}`);
@@ -163,7 +171,9 @@
     if (!panel) return;
     panel.hidden = false;
     if (!enabled) {
-      setStatus("研究データ接続を確認できません。参加コードを確認できないため練習を開始できません。先生に設定を確認してください。", true);
+      setStatus(projectUrl !== expectedProjectUrl
+        ? "Supabaseの接続先URLが想定と異なります。先生にサイト設定を確認してください。"
+        : "研究データ接続を確認できません。参加コードを確認できないため練習を開始できません。先生に設定を確認してください。", true);
       return;
     }
     {

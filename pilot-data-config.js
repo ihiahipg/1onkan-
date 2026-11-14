@@ -3,5 +3,5 @@
 window.PILOT_DATA_CONFIG = {
   projectUrl: "https://yshjibfufqdaqipmkadu.supabase.co",
   publishableKey: "sb_publishable_7PJdO90uMkOv5OeZY85R-w_kKCgylaT",
-  appVersion: "pilot-v1",
+  appVersion: "pilot-v2",
 };

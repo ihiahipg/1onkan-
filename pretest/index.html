@@ -231,6 +231,7 @@ h1 {
 .target-replay-controls { width: min(100%, 320px); margin: 0 auto 8px; }
 .target-replay-controls .button { width: 100%; min-height: 42px; padding: 10px; font-size: 13px; }
 .target-replay-controls[hidden] { display: none; }
+.replay-count { margin: 5px 0 0; text-align: center; font-size: 12px; color: var(--muted, #666); }
 
 .note {
   margin: 10px 0 0;
@@ -314,7 +315,8 @@ h1 {
         </div>
 
         <div id="targetReplayControls" class="target-replay-controls" hidden>
-          <button id="replayTargetButton" class="button" type="button">お題の音をもう一度聴く</button>
+          <button id="replayTargetButton" class="button" type="button">基準音 → お題の音をもう一度聴く</button>
+          <p id="targetReplayCount" class="replay-count" aria-live="polite">この問題で聴き直した回数：0回</p>
         </div>
 
         <div id="answerFeedback" class="answer-compare" hidden>
@@ -461,6 +463,7 @@ const activeShotOscillators = new Set(); let currentReferenceNote = null; let pr
   timeToTargetMs: null,
   maxPostTargetDeviationCents: null,
   snapCount: 0,
+  targetReplayCount: 0,
   promptPhase: "idle",
   promptTimers: [],
   sliderReplayRestoreTimer: null,
@@ -478,6 +481,7 @@ const el = {
   answerFeedback: document.querySelector("#answerFeedback"),
   targetReplayControls: document.querySelector("#targetReplayControls"),
   replayTargetButton: document.querySelector("#replayTargetButton"),
+  targetReplayCount: document.querySelector("#targetReplayCount"),
   replayIncorrectButton: document.querySelector("#replayIncorrectButton"),
   feedback: document.querySelector("#feedback"),
   pitchChart: document.querySelector("#pitchChart"),
@@ -760,7 +764,7 @@ function stopActiveShotTones() {
 }
 
 function replayTargetSound() {
-  if (!state.targetNote) return;
+  if (!state.targetNote || state.phase !== "playing" || state.promptPhase !== "adjust") return;
   const target = state.targetNote;
   const audio = getAudio();
   void audio.ctx.resume();
@@ -771,7 +775,10 @@ function replayTargetSound() {
     audio.userGain.gain.cancelScheduledValues(audio.ctx.currentTime);
     audio.userGain.gain.setTargetAtTime(0, audio.ctx.currentTime, 0.025);
   }
-  playPitchTone(target.freq, 0, 1.0, 0.55);
+  state.targetReplayCount += 1;
+  el.targetReplayCount.textContent = `この問題で聴き直した回数：${state.targetReplayCount}回`;
+  playReferenceTone(currentReferenceNote.freq, 0, 0.9);
+  playTargetTone(target.freq, 1.2, 0.9);
   el.replayTargetButton.disabled = true;
   state.sliderReplayRestoreTimer = window.setTimeout(() => {
     el.replayTargetButton.disabled = false;
@@ -782,7 +789,7 @@ function replayTargetSound() {
       audio.userGain.gain.linearRampToValueAtTime(0.3, now + 0.08);
     }
     state.sliderReplayRestoreTimer = null;
-  }, 1050);
+  }, 2200);
 }
 
 function playReferenceTone(freq, when = 0, duration = 0.95) {
@@ -880,6 +887,8 @@ function startQuestion() {
   state.timeToTargetMs = null;
   state.maxPostTargetDeviationCents = null;
   state.snapCount = 0;
+  state.targetReplayCount = 0;
+  el.targetReplayCount.textContent = "この問題で聴き直した回数：0回";
   state.recordedThisRound = false;
 
   // Play the reference first, then the target once. The target is silent while
@@ -942,6 +951,7 @@ function recordQuestion(correct, skipped = false) {
     label: state.targetNote.label,
     correct,
     skipped,
+    targetReplayCount: state.targetReplayCount,
     seconds,
     crossings: state.crossings,
     savedAt: new Date().toISOString(),
@@ -974,6 +984,7 @@ function recordQuestion(correct, skipped = false) {
         timeToTargetMs: state.timeToTargetMs === null ? null : Math.min(600000, state.timeToTargetMs),
         maxPostTargetDeviationCents: state.maxPostTargetDeviationCents === null ? null : Number(state.maxPostTargetDeviationCents.toFixed(1)),
         snapCount: state.snapCount,
+        targetReplayCount: state.targetReplayCount,
         movementTrace: state.movementTrace,
       },
     });
@@ -1317,6 +1328,7 @@ function render() {
   el.statusText.classList.toggle("correct", !EXPERIMENT.testMode && state.phase === "correct");
   el.statusText.classList.toggle("incorrect", !EXPERIMENT.testMode && state.phase === "incorrect");
   el.answerFeedback.hidden = EXPERIMENT.testMode || state.phase !== "incorrect";
+  el.targetReplayControls.hidden = state.phase !== "playing" || state.promptPhase !== "adjust";
 
   if (state.phase === "idle") {
     el.statusText.textContent = "スタートを押してください";

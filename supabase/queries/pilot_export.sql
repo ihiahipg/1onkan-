@@ -27,6 +27,7 @@ select
   t.time_to_target_ms,
   t.max_post_target_deviation_cents,
   t.snap_count,
+  t.target_replay_count,
   t.movement_trace,
   t.saved_at
 from public.study_trials t

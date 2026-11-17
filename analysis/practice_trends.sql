@@ -24,6 +24,7 @@ with ranked_sessions as (
     avg(t.absolute_error_semitones) filter (where not coalesce(t.skipped, false)) as mean_absolute_error,
     avg(t.correct::int) filter (where not coalesce(t.skipped, false)) as exact_accuracy,
     avg(t.target_crossings) filter (where not coalesce(t.skipped, false)) as mean_target_crossings,
+    avg(t.target_replay_count) as mean_target_replays_per_question,
     avg(t.time_to_target_ms) filter (where not coalesce(t.skipped, false)) as mean_time_to_target_ms
   from ranked_sessions r
   left join public.study_trials t on t.session_id = r.session_id
@@ -49,6 +50,7 @@ select
   avg(mean_absolute_error) as mean_absolute_error_semitones,
   avg(exact_accuracy) as mean_exact_accuracy,
   avg(mean_target_crossings) as mean_target_crossings_per_question,
+  avg(mean_target_replays_per_question) as mean_target_replays_per_question,
   avg(mean_time_to_target_ms) as mean_time_to_target_ms
 from participant_set
 group by assigned_group, music_experience_level, practice_set

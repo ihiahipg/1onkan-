@@ -213,6 +213,10 @@ Deno.serve(async (request) => {
       for (const field of ["firstMoveMs", "timeToTargetMs"] as const) {
         if (trial[field] !== null && !boundedNumber(trial[field], 0, 600000)) return json({ error: `invalid_${field}` }, 400, cors);
       }
+      const targetReplayCount = trial.targetReplayCount === undefined ? 0 : trial.targetReplayCount;
+      if (typeof targetReplayCount !== "number" || !Number.isInteger(targetReplayCount) || targetReplayCount < 0 || targetReplayCount > 1000) {
+        return json({ error: "invalid_targetReplayCount" }, 400, cors);
+      }
       if (trial.maxPostTargetDeviationCents !== null && !boundedNumber(trial.maxPostTargetDeviationCents, 0, 2400)) {
         return json({ error: "invalid_deviation" }, 400, cors);
       }
@@ -237,6 +241,7 @@ Deno.serve(async (request) => {
         time_to_target_ms: trial.timeToTargetMs,
         max_post_target_deviation_cents: trial.maxPostTargetDeviationCents,
         snap_count: trial.snapCount,
+        target_replay_count: targetReplayCount,
         movement_trace: trace,
       }, { onConflict: "session_id,question_number", ignoreDuplicates: true });
       if (trialError) return json({ error: "trial_write_failed" }, 500, cors);

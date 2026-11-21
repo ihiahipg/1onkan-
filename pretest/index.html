@@ -232,6 +232,19 @@ h1 {
 .target-replay-controls .button { width: 100%; min-height: 42px; padding: 10px; font-size: 13px; }
 .target-replay-controls[hidden] { display: none; }
 .replay-count { margin: 5px 0 0; text-align: center; font-size: 12px; color: var(--muted, #666); }
+.experience-survey { min-width: 0; margin: 14px 0; padding: 16px; border: 1px solid #38383a; border-radius: 18px; display: grid; gap: 14px; text-align: left; background: #000; box-shadow: 0 12px 32px #0007; color-scheme: dark; }
+.experience-survey legend { padding: 0 8px; color: #f5f5f7; font-size: 16px; font-weight: 650; letter-spacing: -.02em; }
+.experience-survey label { display: grid; gap: 7px; font-size: 13px; line-height: 1.45; font-weight: 550; color: #e5e5e7; }
+.experience-survey input, .experience-survey select { appearance: none; width: 100%; min-height: 46px; padding: 10px 38px 10px 12px; border: 1px solid #48484a; border-radius: 12px; background-color: #1c1c1e; color: #f5f5f7; font: inherit; transition: border-color .18s ease, background-color .18s ease, box-shadow .18s ease; }
+.experience-survey select { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 14 14'%3E%3Cpath d='m3 5 4 4 4-4' fill='none' stroke='%2398989d' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.6'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 13px center; }
+.experience-survey input:focus, .experience-survey select:focus { outline: none; border-color: #0a84ff; box-shadow: 0 0 0 3px #0a84ff45; background-color: #222224; }
+.experience-survey select:invalid { color: #98989d; }
+.experience-survey option { background: #1c1c1e; color: #f5f5f7; }
+.survey-section { min-width: 0; padding: 14px; border: 1px solid #2c2c2e; border-radius: 14px; display: grid; gap: 12px; background: #101012; }
+.survey-section h3 { margin: 0; color: #f5f5f7; font-size: 13px; font-weight: 650; letter-spacing: -.01em; }
+.survey-section p { margin: 0; }
+.survey-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+@media (max-width: 380px) { .survey-grid { grid-template-columns: 1fr; } }
 
 .note {
   margin: 10px 0 0;
@@ -348,17 +361,50 @@ h1 {
       <section id="pilotEntry" class="pilot-entry" hidden aria-label="研究データの送信">
         <label for="participantCode">研究参加コード</label>
         <input id="participantCode" type="password" inputmode="text" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="例：ABCD-EFGH-JKLM-NPQR" />
-        <div id="experienceSurvey">
-          <label for="musicExperienceLevel">音楽経験（最初に一度だけ登録）</label>
-          <select id="musicExperienceLevel" autocomplete="off">
-          <option value="">選択してください</option>
-          <option value="1">1：経験が豊富</option>
-          <option value="2">2：少し経験がある</option>
-          <option value="3">3：経験がない</option>
-          </select>
-        </div>
-        <p>参加コードは事前テスト後にこの端末のブラウザーへ保存され、練習・事後テストで共通利用されます。</p>
-        <p>回答音程、正誤、回答時間、基準音・お題の音を跨いだ回数と音の動きを研究用に送信します。氏名は入力しません。</p>
+        <fieldset id="experienceSurvey" class="experience-survey">
+          <legend>事前アンケート</legend>
+          <div class="survey-section">
+            <h3>音楽経験</h3>
+            <label for="musicExperienceBand">音楽の習い事をした期間（通算）
+              <select id="musicExperienceBand" required><option value="">選択してください</option><option value="1">1年未満（経験なしを含む）</option><option value="2">1年以上3年未満</option><option value="3">3年以上</option></select>
+            </label>
+            <label for="primaryInstrument">最も経験の長い楽器
+              <select id="primaryInstrument" required><option value="none">経験なし</option><option value="piano_keyboard">ピアノ・鍵盤</option><option value="wind">管楽器</option><option value="strings">弦楽器</option><option value="guitar_bass">ギター・ベース</option><option value="percussion">打楽器</option><option value="other">その他</option></select>
+            </label>
+            <label for="instrumentExperienceYears">楽器を演奏した年数（整数）
+              <input id="instrumentExperienceYears" type="number" min="0" max="80" step="1" required inputmode="numeric" placeholder="経験がない場合は0" />
+            </label>
+            <label for="windBandMember">吹奏楽部に所属した経験
+              <select id="windBandMember" required><option value="">選択してください</option><option value="false">ない</option><option value="true">ある</option></select>
+            </label>
+          </div>
+          <div class="survey-section">
+            <h3>音感について</h3>
+            <label for="otherPitchAppExperience">他の音感トレーニングアプリの使用経験
+              <select id="otherPitchAppExperience" required><option value="">選択してください</option><option value="false">ない</option><option value="true">ある</option></select>
+            </label>
+            <label for="absolutePitchSelfReport">自分には絶対音感があると思いますか
+              <select id="absolutePitchSelfReport" required><option value="">選択してください</option><option value="yes">あると思います</option><option value="no">ないと思います</option><option value="unsure">わかりません</option></select>
+            </label>
+            <label for="relativePitchSelfReport">自分には相対音感があると思いますか
+              <select id="relativePitchSelfReport" required><option value="">選択してください</option><option value="yes">あると思います</option><option value="no">ないと思います</option><option value="unsure">わかりません</option></select>
+            </label>
+          </div>
+          <div class="survey-section">
+            <h3>音程の知識</h3>
+            <label for="knowledgeQ1">ドからファまでの音程は何度ですか
+              <select id="knowledgeQ1" required><option value="">選択してください</option><option value="perfect_fourth">完全4度</option><option value="major_third">長3度</option><option value="perfect_fifth">完全5度</option><option value="minor_sixth">短6度</option></select>
+            </label>
+            <label for="knowledgeQ2">ドからミ♭までの音程は何度ですか
+              <select id="knowledgeQ2" required><option value="">選択してください</option><option value="minor_third">短3度</option><option value="major_third">長3度</option><option value="perfect_fourth">完全4度</option><option value="minor_second">短2度</option></select>
+            </label>
+            <label for="knowledgeQ3">ドからソまでの音程は何度ですか
+              <select id="knowledgeQ3" required><option value="">選択してください</option><option value="perfect_fifth">完全5度</option><option value="perfect_fourth">完全4度</option><option value="major_sixth">長6度</option><option value="minor_seventh">短7度</option></select>
+            </label>
+          </div>
+        </fieldset>
+        <p>参加コードはこの端末のブラウザーに保存され、練習・事後テストでも使われます。</p>
+        <p>回答した音の高さや正誤、回答時間、基準音やお題の音をまたいだ回数、スライダーの動きを研究用データとして送信します。</p>
         <p id="pilotDataStatus" role="status" aria-live="polite"></p>
         <button id="retryPilotUpload" class="button" type="button" hidden>未送信データを再送</button>
       </section>
@@ -369,8 +415,8 @@ h1 {
       <p class="note">音の高さは周波数の対数スケールに基づいています</p>
     </main>
 
-    <script src="../pilot-data-config.js?v=20261114-id-flow"></script>
-    <script src="../pilot-data.js?v=20261114-id-flow"></script>
+    <script src="../pilot-data-config.js?v=20261121-baseline-v2"></script>
+    <script src="../pilot-data.js?v=20261121-baseline-v2"></script>
     <script>
 const REFERENCE_FREQUENCIES = [261.63, 293.66, 329.63, 349.23, 392.0, 440.0, 493.88, 523.25];
 const PITCH_CLASS_NAMES = ["ド", "ド♯", "レ", "レ♯", "ミ", "ファ", "ファ♯", "ソ", "ソ♯", "ラ", "ラ♯", "シ"];
@@ -489,7 +535,16 @@ const el = {
   adaptiveInfo: document.querySelector("#adaptiveInfo"),
   storageNote: document.querySelector("#storageNote"),
   participantCode: document.querySelector("#participantCode"),
-  musicExperienceLevel: document.querySelector("#musicExperienceLevel"),
+  musicExperienceBand: document.querySelector("#musicExperienceBand"),
+  instrumentExperienceYears: document.querySelector("#instrumentExperienceYears"),
+  primaryInstrument: document.querySelector("#primaryInstrument"),
+  windBandMember: document.querySelector("#windBandMember"),
+  absolutePitchSelfReport: document.querySelector("#absolutePitchSelfReport"),
+  relativePitchSelfReport: document.querySelector("#relativePitchSelfReport"),
+  knowledgeQ1: document.querySelector("#knowledgeQ1"),
+  knowledgeQ2: document.querySelector("#knowledgeQ2"),
+  knowledgeQ3: document.querySelector("#knowledgeQ3"),
+  otherPitchAppExperience: document.querySelector("#otherPitchAppExperience"),
   pilotDataStatus: document.querySelector("#pilotDataStatus"),
   retryPilotUpload: document.querySelector("#retryPilotUpload"),
 };
@@ -1043,6 +1098,33 @@ function createPilotUuid() {
   return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
 }
 
+function collectBaseline() {
+  if (STUDY_MODE !== "pretest") return null;
+  const requiredSurvey = [el.musicExperienceBand, el.instrumentExperienceYears, el.windBandMember, el.otherPitchAppExperience,
+    el.absolutePitchSelfReport, el.relativePitchSelfReport, el.knowledgeQ1, el.knowledgeQ2, el.knowledgeQ3];
+  const missing = requiredSurvey.find((field) => !field?.value);
+  if (missing) {
+    window.PilotStudyData.setStatus("アンケートの必須項目をすべて選択してください。", true);
+    missing.focus();
+    return null;
+  }
+  if (!el.instrumentExperienceYears.checkValidity()) {
+    el.instrumentExperienceYears.reportValidity();
+    return null;
+  }
+  return {
+    musicExperienceBand: Number(el.musicExperienceBand.value),
+    instrumentExperienceYears: Number(el.instrumentExperienceYears.value),
+    primaryInstrument: el.primaryInstrument.value,
+    windBandMember: el.windBandMember.value === "true",
+    absolutePitchSelfReport: el.absolutePitchSelfReport.value,
+    relativePitchSelfReport: el.relativePitchSelfReport.value,
+    otherPitchAppExperience: el.otherPitchAppExperience.value === "true",
+    knowledgeQuiz: { q1: el.knowledgeQ1.value, q2: el.knowledgeQ2.value, q3: el.knowledgeQ3.value },
+    surveyVersion: "classroom-baseline-v2",
+  };
+}
+
 function startGame() {
   if (!window.PilotStudyData.enabled) {
     window.PilotStudyData.setStatus("研究データ接続を確認できないため開始できません。通信設定を先生に確認してください。", true);
@@ -1054,7 +1136,8 @@ function startGame() {
     el.participantCode?.focus();
     return;
   }
-  const musicExperienceLevel = el.musicExperienceLevel?.value || null;
+  const baseline = collectBaseline();
+  if (STUDY_MODE === "pretest" && !baseline) return;
   const sessionId = window.crypto.randomUUID
     ? window.crypto.randomUUID()
     : createPilotUuid();
@@ -1067,12 +1150,11 @@ function startGame() {
     pageGroup: ["A", "B", "C", "D"].includes(GROUP) ? GROUP : null,
     sessionId,
     appVersion: PILOT_APP_VERSION,
-    musicExperienceLevel,
+    baseline,
   }).then(async (session) => {
     if (STUDY_MODE === "training" && session.assignedGroup !== GROUP) {
       throw new Error("参加コードの割当群とページが一致しません。割当群のURLを開いてください。");
     }
-    if (el.musicExperienceLevel) el.musicExperienceLevel.value = String(session.musicExperienceLevel);
     if (!window.PilotStudyData.saveParticipantCode(code)) {
       throw new Error("この端末に参加コードを保存できません。ブラウザーの保存設定を確認してください。");
     }
@@ -1100,8 +1182,8 @@ function startGame() {
       ? `この参加コードは${serverAssigned}群です。${serverAssigned.toLowerCase()}群のURLを開いてください。`
       : (invalidCode
         ? "参加コードを確認できませんでした。新しい参加コードを入力してください。"
-        : (error.message === "music_experience_required"
-        ? "音楽経験を選択してください。"
+        : (error.message === "baseline_required"
+        ? "事前アンケートの必須項目を入力してください。"
         : (error.message || "セッションを開始できませんでした。先生へ知らせてください。")));
     window.PilotStudyData.setStatus(message, true);
     el.statusText.textContent = message;

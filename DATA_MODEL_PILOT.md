@@ -1,6 +1,6 @@
 # Pilot data model
 
-This pilot keeps the database in a relational shape. The 12 analysis groups are derived from `assigned_group` (A–D) × `music_experience_level` (1–3); they are not 12 separate tables. This keeps every trial in one consistent format and makes later comparisons reproducible.
+This pilot keeps the database in a relational shape. The 12 analysis groups are derived from `assigned_group` (A–D) × the v2 `music_experience_band` (1–3); they are not 12 separate tables. This keeps every trial in one consistent format and makes later comparisons reproducible.
 
 ```mermaid
 erDiagram
@@ -15,7 +15,7 @@ erDiagram
   }
   PARTICIPANT_BASELINE {
     uuid participant_id PK,FK
-    smallint music_experience_level
+    smallint music_experience_band
     text survey_version
     timestamptz captured_at
   }
@@ -41,7 +41,8 @@ erDiagram
 
 ## Definitions
 
-- Experience level is a self-reported category captured once for each participant: `1` = experienced, `2` = some experience, `3` = no experience. It is categorical; do not treat the numbers as equal-interval measurements.
+- In questionnaire v2, music experience is the duration of lessons: `1` = 0 to under 1 year, `2` = 1 to under 3 years, `3` = 3 or more years. It is categorical; do not treat the numbers as equal-interval measurements. Historical `music_experience_level` responses use a different definition and remain separate; never recode them as v2 bands.
+- The baseline also stores instrument experience, wind-band membership, other pitch-app use, absolute/relative pitch self-report, and the selected options and correctness for three interval-knowledge questions. `survey_version` distinguishes these records from the old one-item baseline.
 - A session is one 10-question set. `session_number` increments separately within each mode, so a participant can have `pretest_1`, `pretest_2`, `training_1`, `training_2`, and `posttest_1`.
 - `study_trials` remains the fine-grained source data, one row per question. Summary graphs should be calculated from these rows, rather than entered by hand.
 - The 12 cells are useful for organizing and describing data. A 10-person pilot will leave many cells empty or very small, so those cells should not be used to claim group-specific effects. Use the pilot to check the procedure, measurement quality, and data flow.

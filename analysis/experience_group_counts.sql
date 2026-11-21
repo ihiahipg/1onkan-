@@ -1,14 +1,14 @@
 -- All 12 group × experience cells, including empty cells (useful for pilot accounting).
 -- This is a descriptive count table; small pilot cells are not evidence of group effects.
 with cells as (
-  select g.group_code as assigned_group, e.level as music_experience_level
+  select g.group_code as assigned_group, e.level as music_experience_band
   from unnest(array['A', 'B', 'C', 'D']::text[]) as g(group_code)
   cross join unnest(array[1, 2, 3]::smallint[]) as e(level)
 ), participants as (
-  select p.id, p.assigned_group, b.music_experience_level
+  select p.id, p.assigned_group, b.music_experience_band
   from public.pilot_participants p
   left join public.participant_baseline b on b.participant_id = p.id
-  where p.active = true
+  where p.active = true and b.survey_version = 'classroom-baseline-v2'
 ), activity as (
   select
     s.participant_id,
@@ -22,7 +22,7 @@ with cells as (
 )
 select
   c.assigned_group,
-  c.music_experience_level,
+  c.music_experience_band,
   count(p.id) as participant_count,
   count(p.id) filter (where a.participant_id is not null) as participants_with_activity,
   coalesce(sum(a.pretest_sessions), 0) as pretest_sessions,
@@ -32,7 +32,7 @@ select
 from cells c
 left join participants p
   on p.assigned_group = c.assigned_group
- and p.music_experience_level = c.music_experience_level
+ and p.music_experience_band = c.music_experience_band
 left join activity a on a.participant_id = p.id
-group by c.assigned_group, c.music_experience_level
-order by c.assigned_group, c.music_experience_level;
+group by c.assigned_group, c.music_experience_band
+order by c.assigned_group, c.music_experience_band;

@@ -8,6 +8,7 @@
   const endpoint = enabled ? `${projectUrl}/functions/v1/pilot-data` : "";
   const OUTBOX_KEY = "pitchTrainerPilotOutboxV1";
   const PARTICIPANT_CODE_KEY = "pitchTrainerPilotParticipantCodeV1";
+  const BASELINE_CACHE_PREFIX = "pitchTrainerPilotBaselineV2-";
 
   function getSavedParticipantCode() {
     try {
@@ -113,7 +114,49 @@
     return remaining.length;
   }
 
-  async function startSession({ code, mode, pageGroup, sessionId, appVersion, musicExperienceLevel }) {
+  async function baselineCacheKey(code) {
+    const normalized = code.toUpperCase().replace(/[\s-]/g, "");
+    const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(normalized));
+    const hex = Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
+    return `${BASELINE_CACHE_PREFIX}${hex}`;
+  }
+
+  async function cacheBaseline(code, baseline) {
+    if (!baseline) return;
+    try { localStorage.setItem(await baselineCacheKey(code), JSON.stringify(baseline)); } catch {}
+  }
+
+  async function restoreBaselineForm(code) {
+    if (!code) return;
+    try {
+      const raw = localStorage.getItem(await baselineCacheKey(code));
+      if (!raw) return;
+      const baseline = JSON.parse(raw);
+      const ids = {
+        musicExperienceBand: "musicExperienceBand",
+        instrumentExperienceYears: "instrumentExperienceYears",
+        primaryInstrument: "primaryInstrument",
+        windBandMember: "windBandMember",
+        absolutePitchSelfReport: "absolutePitchSelfReport",
+        relativePitchSelfReport: "relativePitchSelfReport",
+        otherPitchAppExperience: "otherPitchAppExperience",
+      };
+      for (const [key, id] of Object.entries(ids)) {
+        const input = document.getElementById(id);
+        if (input && baseline[key] !== null && baseline[key] !== undefined) input.value = String(baseline[key]);
+      }
+      for (const key of ["q1", "q2", "q3"]) {
+        const input = document.getElementById(`knowledge${key.toUpperCase()}`);
+        if (input && baseline.knowledgeQuiz?.[key]) input.value = String(baseline.knowledgeQuiz[key]);
+      }
+      const legend = document.querySelector("#experienceSurvey legend");
+      if (legend) legend.textContent = "事前アンケート（この端末に入力済み）";
+      const survey = document.querySelector("#experienceSurvey");
+      if (survey) survey.disabled = true;
+    } catch {}
+  }
+
+  async function startSession({ code, mode, pageGroup, sessionId, appVersion, baseline }) {
     const pendingCount = await flushOutbox(code);
     const result = await post({
       action: "start_session",
@@ -122,8 +165,9 @@
       pageGroup,
       sessionId,
       appVersion,
-      musicExperienceLevel: Number(musicExperienceLevel) || null,
+      baseline,
     });
+    if (mode === "pretest" && baseline) await cacheBaseline(code, baseline);
     if (pendingCount) setStatus(`${pendingCount}件の前回データが未送信です。前回と同じ参加コードで再試行してください。`, true);
     else setStatus("参加コードを確認しました。回答と音の動きは送信されます。");
     return { ...result, pendingCount };
@@ -180,9 +224,10 @@
     const input = document.querySelector("#participantCode");
     const savedCode = getSavedParticipantCode();
     if (input && savedCode) input.value = savedCode;
+    if (isEnrollmentPage && savedCode) void restoreBaselineForm(savedCode);
     panel.hidden = !isEnrollmentPage && Boolean(savedCode);
     setStatus(isEnrollmentPage
-      ? "参加コードと音楽経験を確認して、事前テストを開始してください。"
+      ? "参加コードと事前アンケートを確認して、事前テストを開始してください。"
       : savedCode
         ? "この端末に保存された参加コードで開始できます。"
         : "保存された参加コードがありません。事前テストで使ったコードを入力してください。入力後はこの端末に保存されます。");
@@ -203,8 +248,6 @@
     const panel = document.querySelector("#pilotEntry");
     if (!panel) return;
     panel.hidden = false;
-    const experience = document.querySelector("#experienceSurvey");
-    if (experience) experience.hidden = true;
   }
 
   window.PilotStudyData = {

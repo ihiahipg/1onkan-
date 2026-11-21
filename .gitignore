@@ -13,3 +13,7 @@ pilot_reset_ad_roster_crosswalk.csv
 pilot_reset_ad_participants.sql
 ids_private.csv
 insert_participants.sql
+classroom_codes_private.csv
+classroom_participants_seed.sql
+classroom_randomization.sql
+classroom_randomization_input.csv

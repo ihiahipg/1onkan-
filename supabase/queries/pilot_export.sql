@@ -3,6 +3,15 @@ select
   p.id as participant_id,
   p.pilot_batch,
   b.music_experience_level,
+  b.music_experience_band,
+  b.survey_version,
+  b.legacy_music_experience_survey_version,
+  b.primary_instrument,
+  b.instrument_experience_years,
+  b.wind_band_member,
+  b.absolute_pitch_self_report,
+  b.relative_pitch_self_report,
+  b.other_pitch_app_experience,
   s.assigned_group,
   s.mode,
   s.session_number,
@@ -41,6 +50,9 @@ select
   p.id as participant_id,
   p.pilot_batch,
   b.music_experience_level,
+  b.music_experience_band,
+  b.survey_version,
+  b.legacy_music_experience_survey_version,
   s.assigned_group,
   s.mode,
   s.session_number,
@@ -56,8 +68,8 @@ from public.study_sessions s
 join public.pilot_participants p on p.id = s.participant_id
 join public.participant_baseline b on b.participant_id = p.id
 left join public.study_trials t on t.session_id = s.id
-group by p.id, p.pilot_batch, b.music_experience_level, s.assigned_group, s.mode, s.session_number, s.assessment_wave
-order by s.assigned_group, b.music_experience_level, p.id, s.mode, s.session_number;
+group by p.id, p.pilot_batch, b.music_experience_level, b.music_experience_band, b.survey_version, s.assigned_group, s.mode, s.session_number, s.assessment_wave
+order by s.assigned_group, b.music_experience_band, b.music_experience_level, p.id, s.mode, s.session_number;
 
 -- Paired first-pretest/first-posttest summary; each mode may have repeated waves.
 with person_mode as (
@@ -65,6 +77,9 @@ with person_mode as (
     p.id as participant_id,
     p.pilot_batch,
     b.music_experience_level,
+    b.music_experience_band,
+    b.survey_version,
+    b.legacy_music_experience_survey_version,
     s.assigned_group,
     s.mode,
     s.session_number,
@@ -73,16 +88,18 @@ with person_mode as (
   join public.pilot_participants p on p.id = s.participant_id
   join public.participant_baseline b on b.participant_id = p.id
   join public.study_trials t on t.session_id = s.id
-  group by p.id, p.pilot_batch, b.music_experience_level, s.assigned_group, s.mode, s.session_number
+  group by p.id, p.pilot_batch, b.music_experience_level, b.music_experience_band, b.survey_version, s.assigned_group, s.mode, s.session_number
 )
 select
   participant_id,
   pilot_batch,
   music_experience_level,
+  music_experience_band,
+  survey_version,
   assigned_group,
   max(mean_absolute_error_semitones) filter (where mode = 'pretest' and session_number = 1) as pretest_1_mae_semitones,
   max(mean_absolute_error_semitones) filter (where mode = 'pretest' and session_number = 2) as pretest_2_mae_semitones,
   max(mean_absolute_error_semitones) filter (where mode = 'posttest' and session_number = 1) as posttest_1_mae_semitones
 from person_mode
-group by participant_id, pilot_batch, music_experience_level, assigned_group
-order by assigned_group, music_experience_level, participant_id;
+group by participant_id, pilot_batch, music_experience_level, music_experience_band, survey_version, assigned_group
+order by assigned_group, music_experience_band, music_experience_level, participant_id;

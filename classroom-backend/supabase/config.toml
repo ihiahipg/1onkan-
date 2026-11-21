@@ -1,0 +1,4 @@
+project_id = "classroom-study"
+
+[functions.classroom-data]
+verify_jwt = false

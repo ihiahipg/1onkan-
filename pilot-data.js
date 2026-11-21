@@ -8,7 +8,7 @@
   const endpoint = enabled ? `${projectUrl}/functions/v1/pilot-data` : "";
   const OUTBOX_KEY = "pitchTrainerPilotOutboxV1";
   const PARTICIPANT_CODE_KEY = "pitchTrainerPilotParticipantCodeV1";
-  const BASELINE_CACHE_PREFIX = "pitchTrainerPilotBaselineV2-";
+  const BASELINE_CACHE_PREFIX = "pitchTrainerPilotBaselineV4-";
 
   function getSavedParticipantCode() {
     try {
@@ -72,7 +72,10 @@
         body: JSON.stringify(body),
       });
     } catch (cause) {
-      const error = new Error("Supabaseに接続できませんでした。ページを再読み込みして、通信環境を確認してください。");
+      const message = location.protocol === "file:"
+        ? "HTMLファイルを直接開いているため、ブラウザーがSupabase接続を止めました。GitHub PagesのURLか http://localhost:5500/pretest/ を開いてください。"
+        : "Supabaseに接続できませんでした。通信環境、Project URL、Edge Functionの状態を確認してください。";
+      const error = new Error(message);
       error.cause = cause;
       throw error;
     }
@@ -133,21 +136,22 @@
       if (!raw) return;
       const baseline = JSON.parse(raw);
       const ids = {
-        musicExperienceBand: "musicExperienceBand",
-        instrumentExperienceYears: "instrumentExperienceYears",
+        musicExperienceDuration: "musicExperienceDuration",
         primaryInstrument: "primaryInstrument",
         windBandMember: "windBandMember",
         absolutePitchSelfReport: "absolutePitchSelfReport",
-        relativePitchSelfReport: "relativePitchSelfReport",
         otherPitchAppExperience: "otherPitchAppExperience",
+        relativePitchRating: "relativePitchRating",
+        "knowledgeQuiz.q1": "knowledgeQ1",
+        "knowledgeQuiz.q2": "knowledgeQ2",
+        "knowledgeQuiz.q3": "knowledgeQ3",
       };
       for (const [key, id] of Object.entries(ids)) {
         const input = document.getElementById(id);
-        if (input && baseline[key] !== null && baseline[key] !== undefined) input.value = String(baseline[key]);
-      }
-      for (const key of ["q1", "q2", "q3"]) {
-        const input = document.getElementById(`knowledge${key.toUpperCase()}`);
-        if (input && baseline.knowledgeQuiz?.[key]) input.value = String(baseline.knowledgeQuiz[key]);
+        const value = key.startsWith("knowledgeQuiz.")
+          ? baseline.knowledgeQuiz?.[key.split(".")[1]]
+          : baseline[key];
+        if (input && value !== null && value !== undefined) input.value = String(value);
       }
       const legend = document.querySelector("#experienceSurvey legend");
       if (legend) legend.textContent = "事前アンケート（この端末に入力済み）";
@@ -203,7 +207,7 @@
       await post({ action: "finish_session", participantCode: code, sessionId });
       const pendingCount = readOutbox().length;
       setStatus(pendingCount ? `終了を記録しました。未送信データが${pendingCount}件あります。` : "全10問のデータを送信しました。");
-    } catch {
+    } catch (error) {
       setStatus("終了記録を送信できませんでした。回答データは未送信のまま残る場合があります。", true);
     }
   }

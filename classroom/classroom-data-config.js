@@ -3,5 +3,5 @@
 window.PILOT_DATA_CONFIG = {
   projectUrl: "",
   publishableKey: "",
-  appVersion: "classroom-v2",
+  appVersion: "classroom-v4",
 };

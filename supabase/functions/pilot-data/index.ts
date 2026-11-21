@@ -64,42 +64,47 @@ function validTrace(value: unknown): value is Array<{ t_ms: number; midi: number
 function parseBaseline(value: unknown): { fields: Record<string, unknown>; answers: Array<Record<string, unknown>> } | null {
   if (!value || typeof value !== "object") return null;
   const b = value as Record<string, unknown>;
+  const durations = ["none", "under_1", "1_to_3", "3_to_6", "6_plus"];
+  const familyControls: Record<string, string> = {
+    none: "none", keyboard: "stepwise", woodwind: "stepwise", valved_brass: "stepwise",
+    slide_brass: "continuous", bowed_strings: "continuous", fretted_strings: "stepwise",
+    pitched_percussion: "stepwise", unpitched_percussion: "unpitched", other: "other",
+  };
+  const bandByDuration: Record<string, number> = {
+    none: 3, under_1: 3, "1_to_3": 2, "3_to_6": 1, "6_plus": 1,
+  };
   const quiz = b.knowledgeQuiz as Record<string, unknown> | undefined;
-  const answerKey: Record<string, string> = {
-    q1: "perfect_fourth",
-    q2: "minor_third",
-    q3: "perfect_fifth",
-  };
+  const answerKey: Record<string, string> = { q1: "perfect_fourth", q2: "minor_third", q3: "perfect_fifth" };
   const answerOptions: Record<string, string[]> = {
-    q1: ["perfect_fourth", "major_third", "perfect_fifth", "minor_sixth"],
-    q2: ["minor_third", "major_third", "perfect_fourth", "minor_second"],
-    q3: ["perfect_fifth", "perfect_fourth", "major_sixth", "minor_seventh"],
+    q1: ["perfect_fourth", "major_third", "perfect_fifth", "minor_sixth", "dont_know"],
+    q2: ["minor_third", "major_third", "perfect_fourth", "minor_second", "dont_know"],
+    q3: ["perfect_fifth", "perfect_fourth", "major_sixth", "minor_seventh", "dont_know"],
   };
-  if (!Number.isInteger(b.musicExperienceBand) || Number(b.musicExperienceBand) < 1 || Number(b.musicExperienceBand) > 3 ||
-      !["none", "piano_keyboard", "wind", "strings", "guitar_bass", "percussion", "other"].includes(String(b.primaryInstrument)) ||
-      !Number.isInteger(b.instrumentExperienceYears) || Number(b.instrumentExperienceYears) < 0 || Number(b.instrumentExperienceYears) > 80 ||
+  if (!durations.includes(String(b.musicExperienceDuration)) ||
+      !Object.hasOwn(familyControls, String(b.primaryInstrument)) ||
       typeof b.windBandMember !== "boolean" ||
       !["yes", "no", "unsure"].includes(String(b.absolutePitchSelfReport)) ||
-      !["yes", "no", "unsure"].includes(String(b.relativePitchSelfReport)) ||
-      typeof b.otherPitchAppExperience !== "boolean" || b.surveyVersion !== "classroom-baseline-v2" ||
-      !quiz || Object.keys(answerKey).some((key) => typeof quiz[key] !== "string" || !answerOptions[key].includes(String(quiz[key])))) return null;
-
+      typeof b.otherPitchAppExperience !== "boolean" ||
+      !Number.isInteger(b.relativePitchRating) || Number(b.relativePitchRating) < 1 || Number(b.relativePitchRating) > 5 ||
+      !quiz || Object.keys(answerKey).some((key) => typeof quiz[key] !== "string" || !answerOptions[key].includes(String(quiz[key]))) ||
+      b.surveyVersion !== "classroom-baseline-v4") return null;
   return {
     fields: {
-      music_experience_band: b.musicExperienceBand,
-      primary_instrument: b.primaryInstrument,
-      instrument_experience_years: b.instrumentExperienceYears,
+      music_experience_duration: b.musicExperienceDuration,
+      music_experience_band: bandByDuration[String(b.musicExperienceDuration)],
+      primary_instrument_family: b.primaryInstrument,
+      instrument_pitch_control: familyControls[String(b.primaryInstrument)],
       wind_band_member: b.windBandMember,
       absolute_pitch_self_report: b.absolutePitchSelfReport,
-      relative_pitch_self_report: b.relativePitchSelfReport,
       other_pitch_app_experience: b.otherPitchAppExperience,
+      relative_pitch_rating: b.relativePitchRating,
       survey_version: b.surveyVersion,
     },
     answers: Object.entries(answerKey).map(([key, correctOption]) => ({
       question_code: key === "q1" ? "q1_do_fa_interval" : key === "q2" ? "q2_do_mib_interval" : "q3_do_sol_interval",
       selected_option: quiz[key],
       is_correct: quiz[key] === correctOption,
-      quiz_version: "interval-knowledge-v1",
+      quiz_version: "interval-knowledge-v2",
     })),
   };
 }
@@ -158,36 +163,38 @@ Deno.serve(async (request) => {
         return json({ error: "wrong_group_url", assignedGroup: participant.assigned_group }, 403, cors);
       }
 
-      const { data: storedBaseline, error: baselineReadError } = await admin
-        .from("participant_baseline")
-        .select("music_experience_level, music_experience_band, survey_version")
+      const { data: storedBaselineV3, error: baselineV3ReadError } = await admin
+        .from("participant_baseline_v3")
+        .select("music_experience_band, survey_version")
         .eq("participant_id", participant.id)
         .maybeSingle();
-      if (baselineReadError) return json({ error: "baseline_read_failed" }, 500, cors);
+      if (baselineV3ReadError) return json({ error: "baseline_read_failed" }, 500, cors);
+      const { data: legacyBaseline, error: legacyBaselineReadError } = await admin
+        .from("participant_baseline")
+        .select("participant_id")
+        .eq("participant_id", participant.id)
+        .maybeSingle();
+      if (legacyBaselineReadError) return json({ error: "baseline_read_failed" }, 500, cors);
       if (mode === "pretest" && !submittedBaseline) {
         return json({ error: "baseline_required" }, 400, cors);
       }
-      if (mode !== "pretest" && !storedBaseline) {
+      if (mode !== "pretest" && !storedBaselineV3 && !legacyBaseline) {
         return json({ error: "baseline_required" }, 403, cors);
       }
-      if (submittedBaseline && storedBaseline?.survey_version !== "classroom-baseline-v2") {
-        const baselineRow = { participant_id: participant.id, ...submittedBaseline.fields };
-        const baselineWrite = storedBaseline
-          ? await admin.from("participant_baseline").update(submittedBaseline.fields).eq("participant_id", participant.id)
-          : await admin.from("participant_baseline").insert({ ...baselineRow, music_experience_level: null });
-        if (baselineWrite.error) {
-          const { data: racedBaseline, error: racedReadError } = await admin.from("participant_baseline")
-            .select("survey_version").eq("participant_id", participant.id).maybeSingle();
-          if (racedReadError || racedBaseline?.survey_version !== "classroom-baseline-v2") {
-            return json({ error: "baseline_save_failed" }, 500, cors);
-          }
+      if (submittedBaseline && !storedBaselineV3) {
+        const { error: baselineWriteError } = await admin.from("participant_baseline_v3")
+          .insert({ participant_id: participant.id, ...submittedBaseline.fields });
+        if (baselineWriteError) {
+          const { data: racedBaseline, error: racedReadError } = await admin.from("participant_baseline_v3")
+            .select("participant_id").eq("participant_id", participant.id).maybeSingle();
+          if (racedReadError || !racedBaseline) return json({ error: "baseline_save_failed" }, 500, cors);
         }
       }
       if (submittedBaseline) {
         const answerRows = submittedBaseline.answers.map((answer) => ({ participant_id: participant.id, ...answer }));
-        const { error: answersError } = await admin.from("baseline_knowledge_answers")
+        const { error: answerError } = await admin.from("participant_knowledge_answers_v3")
           .upsert(answerRows, { onConflict: "participant_id,question_code", ignoreDuplicates: true });
-        if (answersError) return json({ error: "knowledge_answers_save_failed" }, 500, cors);
+        if (answerError) return json({ error: "knowledge_answers_save_failed" }, 500, cors);
       }
 
       const { data: previousSessions, error: sessionOrderError } = await admin
@@ -219,7 +226,7 @@ Deno.serve(async (request) => {
           return json({ error: "session_create_failed" }, 409, cors);
         }
       }
-      return json({ sessionId, assignedGroup: participant.assigned_group, musicExperienceBand: storedBaseline?.music_experience_band ?? submittedBaseline?.fields.music_experience_band ?? null, sessionNumber, assessmentWave }, 200, cors);
+      return json({ sessionId, assignedGroup: participant.assigned_group, musicExperienceBand: storedBaselineV3?.music_experience_band ?? submittedBaseline?.fields.music_experience_band ?? null, sessionNumber, assessmentWave }, 200, cors);
     }
 
     if (action === "submit_trial") {
@@ -298,8 +305,7 @@ Deno.serve(async (request) => {
       if (!validUuid(sessionId)) return json({ error: "invalid_session" }, 400, cors);
       const { error: finishError } = await admin.from("study_sessions")
         .update({ completed_at: new Date().toISOString() })
-        .eq("id", sessionId)
-        .eq("participant_id", participant.id);
+        .eq("id", sessionId).eq("participant_id", participant.id);
       if (finishError) return json({ error: "session_finish_failed" }, 500, cors);
       return json({ saved: true }, 200, cors);
     }

@@ -27,7 +27,7 @@ select
   c.baseline_mean_absolute_error
 from complete_baselines c
 join public.participants p on p.id = c.participant_id and p.active
-join public.participant_baseline b on b.participant_id = p.id
+join public.participant_baseline_v3 b on b.participant_id = p.id
 left join public.randomization_assignments a on a.participant_id = p.id
 where a.participant_id is null
 order by p.id;

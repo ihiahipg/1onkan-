@@ -1,52 +1,36 @@
 # Pilot data model
 
-This pilot keeps the database in a relational shape. The 12 analysis groups are derived from `assigned_group` (A–D) × the v2 `music_experience_band` (1–3); they are not 12 separate tables. This keeps every trial in one consistent format and makes later comparisons reproducible.
+Pilot and classroom projects use the same v4 questionnaire and table shape. The pilot keeps earlier survey versions untouched. Twelve analysis cells are derived from `assigned_group` (A–D) × `music_experience_band` (1–3); they are not twelve separate tables.
 
 ```mermaid
 erDiagram
-  PILOT_PARTICIPANTS ||--|| PARTICIPANT_BASELINE : has
+  PILOT_PARTICIPANTS ||--o| PARTICIPANT_BASELINE_V3 : answers_before_test
   PILOT_PARTICIPANTS ||--o{ STUDY_SESSIONS : takes
+  PILOT_PARTICIPANTS ||--o{ PARTICIPANT_KNOWLEDGE_ANSWERS_V3 : answers_before_test
   STUDY_SESSIONS ||--o{ STUDY_TRIALS : contains
-  PILOT_PARTICIPANTS {
-    uuid id PK
-    text assigned_group
-    text pilot_batch
-    boolean active
-  }
-  PARTICIPANT_BASELINE {
-    uuid participant_id PK,FK
-    smallint music_experience_band
-    text survey_version
-    timestamptz captured_at
-  }
-  STUDY_SESSIONS {
-    uuid id PK
-    uuid participant_id FK
-    text mode
-    smallint session_number
-    text assessment_wave
-    timestamptz started_at
-  }
-  STUDY_TRIALS {
-    uuid id PK
-    uuid session_id FK
-    smallint question_number
-    real target_midi
-    real answer_midi
-    real absolute_error_semitones
-    integer target_crossings
-    jsonb movement_trace
-  }
 ```
 
-## Definitions
+## Baseline before the listening test
 
-- In questionnaire v2, music experience is the duration of lessons: `1` = 0 to under 1 year, `2` = 1 to under 3 years, `3` = 3 or more years. It is categorical; do not treat the numbers as equal-interval measurements. Historical `music_experience_level` responses use a different definition and remain separate; never recode them as v2 bands.
-- The baseline also stores instrument experience, wind-band membership, other pitch-app use, absolute/relative pitch self-report, and the selected options and correctness for three interval-knowledge questions. `survey_version` distinguishes these records from the old one-item baseline.
-- A session is one 10-question set. `session_number` increments separately within each mode, so a participant can have `pretest_1`, `pretest_2`, `training_1`, `training_2`, and `posttest_1`.
-- `study_trials` remains the fine-grained source data, one row per question. Summary graphs should be calculated from these rows, rather than entered by hand.
-- The 12 cells are useful for organizing and describing data. A 10-person pilot will leave many cells empty or very small, so those cells should not be used to claim group-specific effects. Use the pilot to check the procedure, measurement quality, and data flow.
-- Attendance numbers such as `3_15` stay in the private crosswalk CSV on the researcher’s device. The database contains a random UUID, not a class/attendance number or name. Keep that crosswalk access restricted and separate from exported trial data.
-- Use a separate Supabase project and a new `pilot_batch` for any later classroom study. Do not pool pilot and classroom records without an explicit analysis plan.
+`participant_baseline_v3` stores one pre-test survey per participant:
 
-The query `analysis/experience_group_counts.sql` creates all 12 group-by-experience rows, including empty cells. `analysis/practice_trends.sql` reports training-set trends by group, experience level, and practice set. `supabase/queries/pilot_export.sql` exports trial-level data together with participant attributes and session order.
+- `music_experience_duration`: raw response (`none`, `under_1`, `1_to_3`, `3_to_6`, `6_plus`).
+- `music_experience_band`: derived three-level analysis band: 1 = 3+ years, 2 = 1–under 3 years, 3 = none or under 1 year. The codes are categories, not equal numeric quantities.
+- `primary_instrument_family`: the participant's longest-experienced instrument family.
+- `instrument_pitch_control`: derived profile: stepwise, continuous, unpitched, none, or other.
+- Wind-band membership, other pitch-app use, absolute-pitch self-report, and relative-pitch self-rating (1–5).
+- `survey_version` and `captured_at`.
+
+Piano/keyboard, woodwinds such as flute, valved brass, fretted strings, and pitched percussion are classified as `stepwise`; slide brass such as trombone and bowed strings as `continuous`; drum-type percussion as `unpitched`. The detailed family and the pitch-control profile are both retained so a later analysis can compare instruments within a profile. Sparse instrument families are exploratory; do not combine or interpret small cells as confirmatory evidence.
+
+## Knowledge questions before the listening test
+
+The three interval-knowledge answers (including `dont_know`) are completed before listening. `participant_knowledge_answers_v3` stores one answer per participant and item. The pre-test then follows the same questionnaire on every device. Since interval terms are shown before listening, this can prime some participants to think in named intervals; interpret scores as performance after that prompt, and keep the order fixed for everyone.
+
+## Session and trial data
+
+A `study_sessions` row represents one 10-question set, identified by participant, mode, session number, and assessment wave. `study_trials` remains the detailed source data: reference and target MIDI, answer, accuracy, error, time, target/reference crossings, snap count, replay count, and slider trajectory. Summaries and graphs should be computed from these rows.
+
+Earlier `participant_baseline` and `baseline_knowledge_answers` rows remain historical v1/v2 data. v4 answers go to versioned tables and do not overwrite them. Use `supabase/queries/pilot_baseline_v3_export.sql` and `supabase/queries/pilot_export.sql` for de-identified exports; never export participant codes or the private roster crosswalk.
+
+A 10-person A/D pilot can confirm the procedure and data flow, not establish group-specific treatment effects. Keep the class-to-participant crosswalk outside Supabase and restrict access to it.

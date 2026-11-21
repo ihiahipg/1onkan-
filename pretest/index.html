@@ -233,6 +233,7 @@ h1 {
 .target-replay-controls[hidden] { display: none; }
 .replay-count { margin: 5px 0 0; text-align: center; font-size: 12px; color: var(--muted, #666); }
 .experience-survey { min-width: 0; margin: 14px 0; padding: 16px; border: 1px solid #38383a; border-radius: 18px; display: grid; gap: 14px; text-align: left; background: #000; box-shadow: 0 12px 32px #0007; color-scheme: dark; }
+.experience-survey[hidden] { display: none; }
 .experience-survey legend { padding: 0 8px; color: #f5f5f7; font-size: 16px; font-weight: 650; letter-spacing: -.02em; }
 .experience-survey label { display: grid; gap: 7px; font-size: 13px; line-height: 1.45; font-weight: 550; color: #e5e5e7; }
 .experience-survey input, .experience-survey select { appearance: none; width: 100%; min-height: 46px; padding: 10px 38px 10px 12px; border: 1px solid #48484a; border-radius: 12px; background-color: #1c1c1e; color: #f5f5f7; font: inherit; transition: border-color .18s ease, background-color .18s ease, box-shadow .18s ease; }
@@ -365,15 +366,32 @@ h1 {
           <legend>事前アンケート</legend>
           <div class="survey-section">
             <h3>音楽経験</h3>
-            <label for="musicExperienceBand">音楽の習い事をした期間（通算）
-              <select id="musicExperienceBand" required><option value="">選択してください</option><option value="1">1年未満（経験なしを含む）</option><option value="2">1年以上3年未満</option><option value="3">3年以上</option></select>
+            <label for="musicExperienceDuration">授業以外で、楽器や音楽活動（習い事・部活動・個人練習など）をした期間の合計
+              <select id="musicExperienceDuration" required>
+                <option value="">選択してください</option>
+                <option value="none">なし</option>
+                <option value="under_1">1年未満</option>
+                <option value="1_to_3">1年以上3年未満</option>
+                <option value="3_to_6">3年以上6年未満</option>
+                <option value="6_plus">6年以上</option>
+              </select>
             </label>
-            <label for="primaryInstrument">最も経験の長い楽器
-              <select id="primaryInstrument" required><option value="none">経験なし</option><option value="piano_keyboard">ピアノ・鍵盤</option><option value="wind">管楽器</option><option value="strings">弦楽器</option><option value="guitar_bass">ギター・ベース</option><option value="percussion">打楽器</option><option value="other">その他</option></select>
+            <label for="primaryInstrument">最も経験の長い楽器の系統
+              <select id="primaryInstrument" required>
+                <option value="">選択してください</option>
+                <option value="none">経験なし</option>
+                <option value="keyboard">鍵盤楽器（ピアノ・電子鍵盤など）</option>
+                <option value="woodwind">木管楽器（フルート・クラリネットなど）</option>
+                <option value="valved_brass">バルブ式金管楽器（トランペット・ホルンなど）</option>
+                <option value="slide_brass">スライド式金管楽器（トロンボーンなど）</option>
+                <option value="bowed_strings">弓で演奏する弦楽器（バイオリン・チェロなど）</option>
+                <option value="fretted_strings">フレットのある弦楽器（ギター・ベースなど）</option>
+                <option value="pitched_percussion">音程のある打楽器（木琴・マリンバなど）</option>
+                <option value="unpitched_percussion">音程を主に扱わない打楽器（ドラムなど）</option>
+                <option value="other">その他</option>
+              </select>
             </label>
-            <label for="instrumentExperienceYears">楽器を演奏した年数（整数）
-              <input id="instrumentExperienceYears" type="number" min="0" max="80" step="1" required inputmode="numeric" placeholder="経験がない場合は0" />
-            </label>
+            <p class="survey-help">楽器の系統と、音の高さを段階的・連続的に変えるかを分けて記録します。楽器ごとの違いは探索的に分析します。</p>
             <label for="windBandMember">吹奏楽部に所属した経験
               <select id="windBandMember" required><option value="">選択してください</option><option value="false">ない</option><option value="true">ある</option></select>
             </label>
@@ -383,24 +401,30 @@ h1 {
             <label for="otherPitchAppExperience">他の音感トレーニングアプリの使用経験
               <select id="otherPitchAppExperience" required><option value="">選択してください</option><option value="false">ない</option><option value="true">ある</option></select>
             </label>
-            <label for="absolutePitchSelfReport">自分には絶対音感があると思いますか
-              <select id="absolutePitchSelfReport" required><option value="">選択してください</option><option value="yes">あると思います</option><option value="no">ないと思います</option><option value="unsure">わかりません</option></select>
+            <label for="absolutePitchSelfReport">椅子を引く音や信号音などの日常の音を聞いたとき、基準になる音がなくても「ド・レ・ミ」などの音名が分かりますか
+              <select id="absolutePitchSelfReport" required><option value="">選択してください</option><option value="yes">分かる</option><option value="no">分からない</option><option value="unsure">判断できない</option></select>
             </label>
-            <label for="relativePitchSelfReport">自分には相対音感があると思いますか
-              <select id="relativePitchSelfReport" required><option value="">選択してください</option><option value="yes">あると思います</option><option value="no">ないと思います</option><option value="unsure">わかりません</option></select>
-            </label>
+            <p class="survey-help">ここでは絶対音感を「基準音と比べずに、聞こえた音の名前が分かること」として尋ねています。自己評価なので、正確に分からない場合は「判断できない」を選んでください。</p>
           </div>
           <div class="survey-section">
             <h3>音程の知識</h3>
+            <p class="survey-help">知らなくても問題ありません。分からない場合は「わからない」を選んでください。</p>
             <label for="knowledgeQ1">ドからファまでの音程は何度ですか
-              <select id="knowledgeQ1" required><option value="">選択してください</option><option value="perfect_fourth">完全4度</option><option value="major_third">長3度</option><option value="perfect_fifth">完全5度</option><option value="minor_sixth">短6度</option></select>
+              <select id="knowledgeQ1" required><option value="">選択してください</option><option value="perfect_fourth">完全4度</option><option value="major_third">長3度</option><option value="perfect_fifth">完全5度</option><option value="minor_sixth">短6度</option><option value="dont_know">わからない</option></select>
             </label>
-            <label for="knowledgeQ2">ドからミ♭までの音程は何度ですか
-              <select id="knowledgeQ2" required><option value="">選択してください</option><option value="minor_third">短3度</option><option value="major_third">長3度</option><option value="perfect_fourth">完全4度</option><option value="minor_second">短2度</option></select>
+            <label for="knowledgeQ2">ドからミ♭（ミのフラット）までの音程は何度ですか
+              <select id="knowledgeQ2" required><option value="">選択してください</option><option value="minor_third">短3度</option><option value="major_third">長3度</option><option value="perfect_fourth">完全4度</option><option value="minor_second">短2度</option><option value="dont_know">わからない</option></select>
             </label>
             <label for="knowledgeQ3">ドからソまでの音程は何度ですか
-              <select id="knowledgeQ3" required><option value="">選択してください</option><option value="perfect_fifth">完全5度</option><option value="perfect_fourth">完全4度</option><option value="major_sixth">長6度</option><option value="minor_seventh">短7度</option></select>
+              <select id="knowledgeQ3" required><option value="">選択してください</option><option value="perfect_fifth">完全5度</option><option value="perfect_fourth">完全4度</option><option value="major_sixth">長6度</option><option value="minor_seventh">短7度</option><option value="dont_know">わからない</option></select>
             </label>
+          </div>
+          <div class="survey-section">
+            <h3>音の聴き分けについて</h3>
+            <label for="relativePitchRating">基準になる音を聞いたあと、次の音がどれくらい高い・低いか（例：ドからミ）を聴き分けるのは、どのくらい得意ですか
+              <select id="relativePitchRating" required><option value="">選択してください</option><option value="1">1：苦手</option><option value="2">2</option><option value="3">3：どちらともいえない</option><option value="4">4</option><option value="5">5：得意</option></select>
+            </label>
+            <p class="survey-help">ここでは、基準の音と比べて音の高さの差を聴き分ける力（相対音感）について尋ねています。音楽用語が分からなくても、感覚で答えて大丈夫です。</p>
           </div>
         </fieldset>
         <p>参加コードはこの端末のブラウザーに保存され、練習・事後テストでも使われます。</p>
@@ -415,8 +439,8 @@ h1 {
       <p class="note">音の高さは周波数の対数スケールに基づいています</p>
     </main>
 
-    <script src="../pilot-data-config.js?v=20261121-baseline-v2"></script>
-    <script src="../pilot-data.js?v=20261121-baseline-v2"></script>
+    <script src="../pilot-data-config.js?v=20261121-baseline-v4"></script>
+    <script src="../pilot-data.js?v=20261121-baseline-v4"></script>
     <script>
 const REFERENCE_FREQUENCIES = [261.63, 293.66, 329.63, 349.23, 392.0, 440.0, 493.88, 523.25];
 const PITCH_CLASS_NAMES = ["ド", "ド♯", "レ", "レ♯", "ミ", "ファ", "ファ♯", "ソ", "ソ♯", "ラ", "ラ♯", "シ"];
@@ -444,7 +468,7 @@ const GROUP_CONFIG = {
 };
 const GROUP = (document.documentElement.dataset.group || "A").toUpperCase();
 const STUDY_MODE = document.documentElement.dataset.mode || "training";
-const PILOT_APP_VERSION = window.PILOT_DATA_CONFIG?.appVersion || "pilot-v1";
+const PILOT_APP_VERSION = window.PILOT_DATA_CONFIG?.appVersion || "pilot-v5";
 const EXPERIMENT = GROUP_CONFIG[GROUP] || GROUP_CONFIG.A;
 const HISTORY_STORAGE_KEY = `pitchTrainerRelativeHistoryV1-${GROUP}`;
 const ADAPTIVE_MIN_TOTAL = 20;
@@ -535,12 +559,11 @@ const el = {
   adaptiveInfo: document.querySelector("#adaptiveInfo"),
   storageNote: document.querySelector("#storageNote"),
   participantCode: document.querySelector("#participantCode"),
-  musicExperienceBand: document.querySelector("#musicExperienceBand"),
-  instrumentExperienceYears: document.querySelector("#instrumentExperienceYears"),
+  musicExperienceDuration: document.querySelector("#musicExperienceDuration"),
   primaryInstrument: document.querySelector("#primaryInstrument"),
   windBandMember: document.querySelector("#windBandMember"),
   absolutePitchSelfReport: document.querySelector("#absolutePitchSelfReport"),
-  relativePitchSelfReport: document.querySelector("#relativePitchSelfReport"),
+  relativePitchRating: document.querySelector("#relativePitchRating"),
   knowledgeQ1: document.querySelector("#knowledgeQ1"),
   knowledgeQ2: document.querySelector("#knowledgeQ2"),
   knowledgeQ3: document.querySelector("#knowledgeQ3"),
@@ -1074,7 +1097,7 @@ function setIncorrect() {
 
 function finishGame() {
   if (state.sessionId && state.studyCode) {
-    window.PilotStudyData.finishSession({ code: state.studyCode, sessionId: state.sessionId });
+    void window.PilotStudyData.finishSession({ code: state.studyCode, sessionId: state.sessionId });
   }
   state.phase = "complete";
   endRound();
@@ -1100,29 +1123,34 @@ function createPilotUuid() {
 
 function collectBaseline() {
   if (STUDY_MODE !== "pretest") return null;
-  const requiredSurvey = [el.musicExperienceBand, el.instrumentExperienceYears, el.windBandMember, el.otherPitchAppExperience,
-    el.absolutePitchSelfReport, el.relativePitchSelfReport, el.knowledgeQ1, el.knowledgeQ2, el.knowledgeQ3];
+  const requiredSurvey = [el.musicExperienceDuration, el.primaryInstrument, el.windBandMember,
+    el.otherPitchAppExperience, el.absolutePitchSelfReport, el.relativePitchRating,
+    el.knowledgeQ1, el.knowledgeQ2, el.knowledgeQ3];
   const missing = requiredSurvey.find((field) => !field?.value);
   if (missing) {
     window.PilotStudyData.setStatus("アンケートの必須項目をすべて選択してください。", true);
     missing.focus();
     return null;
   }
-  if (!el.instrumentExperienceYears.checkValidity()) {
-    el.instrumentExperienceYears.reportValidity();
-    return null;
-  }
   return {
-    musicExperienceBand: Number(el.musicExperienceBand.value),
-    instrumentExperienceYears: Number(el.instrumentExperienceYears.value),
+    musicExperienceDuration: el.musicExperienceDuration.value,
     primaryInstrument: el.primaryInstrument.value,
+    instrumentPitchControl: instrumentPitchControlFor(el.primaryInstrument.value),
     windBandMember: el.windBandMember.value === "true",
     absolutePitchSelfReport: el.absolutePitchSelfReport.value,
-    relativePitchSelfReport: el.relativePitchSelfReport.value,
     otherPitchAppExperience: el.otherPitchAppExperience.value === "true",
+    relativePitchRating: Number(el.relativePitchRating.value),
     knowledgeQuiz: { q1: el.knowledgeQ1.value, q2: el.knowledgeQ2.value, q3: el.knowledgeQ3.value },
-    surveyVersion: "classroom-baseline-v2",
+    surveyVersion: "classroom-baseline-v4",
   };
+}
+
+function instrumentPitchControlFor(family) {
+  if (["keyboard", "woodwind", "valved_brass", "fretted_strings", "pitched_percussion"].includes(family)) return "stepwise";
+  if (["slide_brass", "bowed_strings"].includes(family)) return "continuous";
+  if (family === "unpitched_percussion") return "unpitched";
+  if (family === "none") return "none";
+  return "other";
 }
 
 function startGame() {

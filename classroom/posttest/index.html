@@ -357,38 +357,7 @@ h1 {
       <section id="pilotEntry" class="pilot-entry" hidden aria-label="研究データの送信">
         <label for="participantCode">研究参加コード</label>
         <input id="participantCode" type="password" inputmode="text" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="例：ABCD-EFGH-JKLM-NPQR" />
-        <fieldset id="experienceSurvey" class="experience-survey">
-          <legend>事前アンケート（初回の事前テスト前に回答）</legend>
-          <p class="survey-help">氏名や出席番号は入力しません。経験年数は年単位で入力してください。音楽経験の段階は自動で分類されます。</p>
-          <label for="musicExperienceYears">音楽活動の通算経験年数 <span aria-hidden="true">*</span></label>
-          <input id="musicExperienceYears" type="number" min="0" max="80" step="0.1" required inputmode="decimal" placeholder="未経験なら 0" />
-          <p id="experienceBandPreview" class="survey-help" aria-live="polite">0年なら「未経験・1年未満」に分類されます。</p>
-          <label for="primaryInstrument">主に経験した楽器</label>
-          <select id="primaryInstrument"><option value="none">楽器経験なし</option><option value="piano_keyboard">ピアノ・鍵盤</option><option value="wind">管楽器</option><option value="strings">弦楽器</option><option value="guitar_bass">ギター・ベース</option><option value="percussion">打楽器</option><option value="other">その他</option></select>
-          <div class="survey-grid">
-            <label>楽器演奏の経験（年）<input id="instrumentExperienceYears" type="number" min="0" max="80" step="0.1" inputmode="decimal" placeholder="なければ0" /></label>
-            <label>歌の経験（年）<input id="singingExperienceYears" type="number" min="0" max="80" step="0.1" inputmode="decimal" placeholder="なければ0" /></label>
-            <label>合唱の経験（年）<input id="choirExperienceYears" type="number" min="0" max="80" step="0.1" inputmode="decimal" placeholder="なければ0" /></label>
-            <label>合奏の経験（年）<input id="ensembleExperienceYears" type="number" min="0" max="80" step="0.1" inputmode="decimal" placeholder="なければ0" /></label>
-            <label>吹奏楽の経験（年）<input id="windBandExperienceYears" type="number" min="0" max="80" step="0.1" inputmode="decimal" placeholder="なければ0" /></label>
-            <label>ピアノ・鍵盤の経験（年）<input id="pianoExperienceYears" type="number" min="0" max="80" step="0.1" inputmode="decimal" placeholder="なければ0" /></label>
-          </div>
-          <label for="movableDoLevel">移動ドで歌った経験</label>
-          <select id="movableDoLevel"><option value="0">ない</option><option value="1">少しある</option><option value="2">継続的にある</option></select>
-          <label for="fixedDoLevel">固定ドで歌った経験</label>
-          <select id="fixedDoLevel"><option value="0">ない</option><option value="1">少しある</option><option value="2">継続的にある</option></select>
-          <label for="noteNameKnowledge">音名（ドレミ・CDEなど）の知識</label>
-          <select id="noteNameKnowledge"><option value="0">ほとんど知らない</option><option value="1">少し知っている</option><option value="2">よく知っている</option></select>
-          <label for="absolutePitchSelfReport">絶対音感についての自己評価</label>
-          <select id="absolutePitchSelfReport"><option value="unsure">わからない</option><option value="no">ないと思う</option><option value="yes">あると思う</option></select>
-          <div class="survey-grid">
-            <label>週の練習日数（0〜7日）<input id="practiceDaysPerWeek" type="number" min="0" max="7" step="1" inputmode="numeric" placeholder="任意" /></label>
-            <label>学年<select id="gradeLevel"><option value="">選択してください</option><option value="1">1年</option><option value="2">2年</option><option value="3">3年</option></select></label>
-            <label>クラス<select id="classCode"><option value="">選択してください</option><option value="1">1組</option><option value="2">2組</option><option value="3">3組</option><option value="4">4組</option><option value="5">5組</option></select></label>
-          </div>
-          <label for="otherPitchAppExperience">他の音感アプリを使った経験</label>
-          <select id="otherPitchAppExperience"><option value="false">ない</option><option value="true">ある</option></select>
-        </fieldset>
+
         <p>参加コードは事前テスト後にこの端末のブラウザーへ保存され、練習・事後テストで共通利用されます。</p>
         <p>回答音程、正誤、回答時間、基準音・お題の音を跨いだ回数と音の動きを研究用に送信します。氏名は入力しません。</p>
         <p id="pilotDataStatus" role="status" aria-live="polite"></p>
@@ -411,8 +380,8 @@ h1 {
       <p class="note">音の高さは周波数の対数スケールに基づいています</p>
     </main>
 
-    <script src="../classroom-data-config.js?v=classroom-v2"></script>
-    <script src="../classroom-data.js?v=classroom-v2"></script>
+    <script src="../classroom-data-config.js?v=classroom-v5"></script>
+    <script src="../classroom-data.js?v=classroom-v5"></script>
     <script>
 const REFERENCE_FREQUENCIES = [261.63, 293.66, 329.63, 349.23, 392.0, 440.0, 493.88, 523.25];
 const PITCH_CLASS_NAMES = ["ド", "ド♯", "レ", "レ♯", "ミ", "ファ", "ファ♯", "ソ", "ソ♯", "ラ", "ラ♯", "シ"];
@@ -440,7 +409,7 @@ const GROUP_CONFIG = {
 };
 const GROUP = (document.documentElement.dataset.group || "A").toUpperCase();
 const STUDY_MODE = document.documentElement.dataset.mode || "training";
-const PILOT_APP_VERSION = window.PILOT_DATA_CONFIG?.appVersion || "classroom-v2";
+const PILOT_APP_VERSION = window.PILOT_DATA_CONFIG?.appVersion || "classroom-v5";
 const EXPERIMENT = GROUP_CONFIG[GROUP] || GROUP_CONFIG.A;
 const HISTORY_STORAGE_KEY = `classroom-pitchTrainerRelativeHistoryV1-${GROUP}`;
 const ADAPTIVE_MIN_TOTAL = 20;

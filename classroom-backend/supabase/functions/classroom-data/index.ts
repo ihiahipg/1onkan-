@@ -49,19 +49,20 @@ function parseBaseline(value: unknown): { fields: Record<string, unknown>; answe
   const b = value as Record<string, unknown>;
   const durations = ["none", "under_1", "1_to_3", "3_to_6", "6_plus"];
   const familyControls: Record<string, string> = {
-    none: "none", keyboard: "stepwise", woodwind: "stepwise", valved_brass: "stepwise",
-    slide_brass: "continuous", bowed_strings: "continuous", fretted_strings: "stepwise",
-    pitched_percussion: "stepwise", unpitched_percussion: "unpitched", other: "other",
+    none: "none", continuous_pitch: "continuous", stepwise_pitch: "stepwise",
+    unpitched_percussion: "unpitched", other: "other",
   };
   const bandByDuration: Record<string, number> = {
     none: 3, under_1: 3, "1_to_3": 2, "3_to_6": 1, "6_plus": 1,
   };
   const quiz = b.knowledgeQuiz as Record<string, unknown> | undefined;
-  const answerKey: Record<string, string> = { q1: "perfect_fourth", q2: "minor_third", q3: "perfect_fifth" };
+  const answerKey: Record<string, string> = { q1: "perfect_fourth", q2: "minor_third", q3: "perfect_fifth", q4: "major_third", q5: "major_sixth" };
   const answerOptions: Record<string, string[]> = {
     q1: ["perfect_fourth", "major_third", "perfect_fifth", "minor_sixth", "dont_know"],
     q2: ["minor_third", "major_third", "perfect_fourth", "minor_second", "dont_know"],
     q3: ["perfect_fifth", "perfect_fourth", "major_sixth", "minor_seventh", "dont_know"],
+    q4: ["major_third", "minor_third", "perfect_fourth", "major_second", "dont_know"],
+    q5: ["major_sixth", "minor_sixth", "perfect_fifth", "major_seventh", "dont_know"],
   };
   if (!durations.includes(String(b.musicExperienceDuration)) ||
       !Object.hasOwn(familyControls, String(b.primaryInstrument)) ||
@@ -70,7 +71,7 @@ function parseBaseline(value: unknown): { fields: Record<string, unknown>; answe
       typeof b.otherPitchAppExperience !== "boolean" ||
       !Number.isInteger(b.relativePitchRating) || Number(b.relativePitchRating) < 1 || Number(b.relativePitchRating) > 5 ||
       !quiz || Object.keys(answerKey).some((key) => typeof quiz[key] !== "string" || !answerOptions[key].includes(String(quiz[key]))) ||
-      b.surveyVersion !== "classroom-baseline-v4") return null;
+      b.surveyVersion !== "classroom-baseline-v5") return null;
   return {
     fields: {
       music_experience_duration: b.musicExperienceDuration,
@@ -84,10 +85,10 @@ function parseBaseline(value: unknown): { fields: Record<string, unknown>; answe
       survey_version: b.surveyVersion,
     },
     answers: Object.entries(answerKey).map(([key, correctOption]) => ({
-      question_code: key === "q1" ? "q1_do_fa_interval" : key === "q2" ? "q2_do_mib_interval" : "q3_do_sol_interval",
+      question_code: ({ q1: "q1_do_fa_interval", q2: "q2_do_mib_interval", q3: "q3_do_sol_interval", q4: "q4_do_mi_interval", q5: "q5_do_la_interval" } as Record<string, string>)[key],
       selected_option: quiz[key],
       is_correct: quiz[key] === correctOption,
-      quiz_version: "interval-knowledge-v2",
+      quiz_version: "interval-knowledge-v3-5q",
     })),
   };
 }

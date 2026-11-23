@@ -387,18 +387,13 @@ h1 {
                 <option value="6_plus">6年以上</option>
               </select>
             </label>
-            <label for="primaryInstrument">最も経験の長い楽器の系統
+            <label for="primaryInstrument">これまでに経験した楽器は、音の高さの変え方がどのタイプに近いですか
               <select id="primaryInstrument" required>
                 <option value="">選択してください</option>
-                <option value="none">経験なし</option>
-                <option value="keyboard">鍵盤楽器（ピアノ・電子鍵盤など）</option>
-                <option value="woodwind">木管楽器（フルート・クラリネットなど）</option>
-                <option value="valved_brass">バルブ式金管楽器（トランペット・ホルンなど）</option>
-                <option value="slide_brass">スライド式金管楽器（トロンボーンなど）</option>
-                <option value="bowed_strings">弓で演奏する弦楽器（バイオリン・チェロなど）</option>
-                <option value="fretted_strings">フレットのある弦楽器（ギター・ベースなど）</option>
-                <option value="pitched_percussion">音程のある打楽器（木琴・マリンバなど）</option>
-                <option value="unpitched_percussion">音程を主に扱わない打楽器（ドラムなど）</option>
+                <option value="none">楽器経験なし</option>
+                <option value="continuous_pitch">連続的に音高を調節する楽器（トロンボーン・バイオリンなど）</option>
+                <option value="stepwise_pitch">段階的に音を選ぶ楽器（ピアノ・フルートなど）</option>
+                <option value="unpitched_percussion">音高を主に扱わない打楽器（ドラムなど）</option>
                 <option value="other">その他</option>
               </select>
             </label>
@@ -418,7 +413,7 @@ h1 {
             <p class="survey-help">ここでは絶対音感を「基準音と比べずに、聞こえた音の名前が分かること」として尋ねています。自己評価なので、正確に分からない場合は「判断できない」を選んでください。</p>
           </div>
           <div class="survey-section">
-            <h3>音程の知識</h3>
+            <h3>音程の知識（5問）</h3>
             <p class="survey-help">知らなくても問題ありません。分からない場合は「わからない」を選んでください。</p>
             <label for="knowledgeQ1">ドからファまでの音程は何度ですか
               <select id="knowledgeQ1" required><option value="">選択してください</option><option value="perfect_fourth">完全4度</option><option value="major_third">長3度</option><option value="perfect_fifth">完全5度</option><option value="minor_sixth">短6度</option><option value="dont_know">わからない</option></select>
@@ -428,6 +423,12 @@ h1 {
             </label>
             <label for="knowledgeQ3">ドからソまでの音程は何度ですか
               <select id="knowledgeQ3" required><option value="">選択してください</option><option value="perfect_fifth">完全5度</option><option value="perfect_fourth">完全4度</option><option value="major_sixth">長6度</option><option value="minor_seventh">短7度</option><option value="dont_know">わからない</option></select>
+            </label>
+            <label for="knowledgeQ4">ドからミまでの音程は何度ですか
+              <select id="knowledgeQ4" required><option value="">選択してください</option><option value="major_third">長3度</option><option value="minor_third">短3度</option><option value="perfect_fourth">完全4度</option><option value="major_second">長2度</option><option value="dont_know">わからない</option></select>
+            </label>
+            <label for="knowledgeQ5">ドからラまでの音程は何度ですか
+              <select id="knowledgeQ5" required><option value="">選択してください</option><option value="major_sixth">長6度</option><option value="minor_sixth">短6度</option><option value="perfect_fifth">完全5度</option><option value="major_seventh">長7度</option><option value="dont_know">わからない</option></select>
             </label>
           </div>
           <div class="survey-section">
@@ -450,8 +451,8 @@ h1 {
       <p class="note">音の高さは周波数の対数スケールに基づいています</p>
     </main>
 
-    <script src="../pilot-data-config.js?v=20261121-baseline-v4"></script>
-    <script src="../pilot-data.js?v=20261121-baseline-v4"></script>
+    <script src="../pilot-data-config.js?v=20261123-survey-v5"></script>
+    <script src="../pilot-data.js?v=20261123-survey-v5"></script>
     <script>
 const REFERENCE_FREQUENCIES = [261.63, 293.66, 329.63, 349.23, 392.0, 440.0, 493.88, 523.25];
 const PITCH_CLASS_NAMES = ["ド", "ド♯", "レ", "レ♯", "ミ", "ファ", "ファ♯", "ソ", "ソ♯", "ラ", "ラ♯", "シ"];
@@ -578,6 +579,8 @@ const el = {
   knowledgeQ1: document.querySelector("#knowledgeQ1"),
   knowledgeQ2: document.querySelector("#knowledgeQ2"),
   knowledgeQ3: document.querySelector("#knowledgeQ3"),
+  knowledgeQ4: document.querySelector("#knowledgeQ4"),
+  knowledgeQ5: document.querySelector("#knowledgeQ5"),
   otherPitchAppExperience: document.querySelector("#otherPitchAppExperience"),
   pilotDataStatus: document.querySelector("#pilotDataStatus"),
   retryPilotUpload: document.querySelector("#retryPilotUpload"),
@@ -1136,7 +1139,7 @@ function collectBaseline() {
   if (STUDY_MODE !== "pretest") return null;
   const requiredSurvey = [el.musicExperienceDuration, el.primaryInstrument, el.windBandMember,
     el.otherPitchAppExperience, el.absolutePitchSelfReport, el.relativePitchRating,
-    el.knowledgeQ1, el.knowledgeQ2, el.knowledgeQ3];
+    el.knowledgeQ1, el.knowledgeQ2, el.knowledgeQ3, el.knowledgeQ4, el.knowledgeQ5];
   const missing = requiredSurvey.find((field) => !field?.value);
   if (missing) {
     window.PilotStudyData.setStatus("アンケートの必須項目をすべて選択してください。", true);
@@ -1151,14 +1154,14 @@ function collectBaseline() {
     absolutePitchSelfReport: el.absolutePitchSelfReport.value,
     otherPitchAppExperience: el.otherPitchAppExperience.value === "true",
     relativePitchRating: Number(el.relativePitchRating.value),
-    knowledgeQuiz: { q1: el.knowledgeQ1.value, q2: el.knowledgeQ2.value, q3: el.knowledgeQ3.value },
-    surveyVersion: "classroom-baseline-v4",
+    knowledgeQuiz: { q1: el.knowledgeQ1.value, q2: el.knowledgeQ2.value, q3: el.knowledgeQ3.value, q4: el.knowledgeQ4.value, q5: el.knowledgeQ5.value },
+    surveyVersion: "classroom-baseline-v5",
   };
 }
 
 function instrumentPitchControlFor(family) {
-  if (["keyboard", "woodwind", "valved_brass", "fretted_strings", "pitched_percussion"].includes(family)) return "stepwise";
-  if (["slide_brass", "bowed_strings"].includes(family)) return "continuous";
+  if (family === "stepwise_pitch") return "stepwise";
+  if (family === "continuous_pitch") return "continuous";
   if (family === "unpitched_percussion") return "unpitched";
   if (family === "none") return "none";
   return "other";

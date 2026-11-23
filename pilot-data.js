@@ -145,6 +145,8 @@
         "knowledgeQuiz.q1": "knowledgeQ1",
         "knowledgeQuiz.q2": "knowledgeQ2",
         "knowledgeQuiz.q3": "knowledgeQ3",
+        "knowledgeQuiz.q4": "knowledgeQ4",
+        "knowledgeQuiz.q5": "knowledgeQ5",
       };
       for (const [key, id] of Object.entries(ids)) {
         const input = document.getElementById(id);

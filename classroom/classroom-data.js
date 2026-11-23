@@ -6,8 +6,10 @@
     (publishableKey.startsWith("sb_publishable_") || publishableKey.startsWith("eyJ"));
   const endpoint = enabled ? `${projectUrl}/functions/v1/classroom-data` : "";
   const OUTBOX_KEY = "pitchTrainerClassroomOutboxV1";
+  const FINISH_OUTBOX_KEY = "pitchTrainerClassroomFinishOutboxV1";
   const PARTICIPANT_CODE_KEY = "pitchTrainerClassroomParticipantCodeV1";
   const BASELINE_CACHE_PREFIX = "pitchTrainerClassroomBaselineV4-";
+  let enrollmentPage = false;
 
   function getSavedParticipantCode() {
     try {
@@ -40,8 +42,21 @@
     if (!node) return;
     node.textContent = message;
     node.classList.toggle("error", isError);
+    const hasPending = readOutbox().length > 0 || readFinishOutbox().length > 0;
+    const panel = document.querySelector("#pilotEntry");
+    if (panel && hasPending) {
+      panel.hidden = false;
+      if (!enrollmentPage) {
+        const codeInput = document.querySelector("#participantCode");
+        const codeLabel = panel.querySelector('label[for="participantCode"]');
+        const experience = document.querySelector("#experienceSurvey");
+        if (codeInput) codeInput.hidden = true;
+        if (codeLabel) codeLabel.hidden = true;
+        if (experience) experience.hidden = true;
+      }
+    }
     const retry = document.querySelector("#retryPilotUpload");
-    if (retry && enabled) retry.hidden = readOutbox().length === 0;
+    if (retry && enabled) retry.hidden = !hasPending;
   }
 
   function readOutbox() {
@@ -60,6 +75,47 @@
     } catch {
       return false;
     }
+  }
+
+  function readFinishOutbox() {
+    try {
+      const value = JSON.parse(localStorage.getItem(FINISH_OUTBOX_KEY) || "[]");
+      return Array.isArray(value) ? value.filter((id) => typeof id === "string") : [];
+    } catch {
+      return [];
+    }
+  }
+
+  function writeFinishOutbox(value) {
+    try {
+      localStorage.setItem(FINISH_OUTBOX_KEY, JSON.stringify([...new Set(value)]));
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  function queueFinish(sessionId) {
+    const pending = readFinishOutbox();
+    if (!pending.includes(sessionId)) pending.push(sessionId);
+    return writeFinishOutbox(pending);
+  }
+
+  async function flushPendingFinishes(code) {
+    const remaining = [];
+    for (const sessionId of readFinishOutbox()) {
+      if (readOutbox().some((item) => item.sessionId === sessionId)) {
+        remaining.push(sessionId);
+        continue;
+      }
+      try {
+        await post({ action: "finish_session", participantCode: code, sessionId });
+      } catch {
+        remaining.push(sessionId);
+      }
+    }
+    writeFinishOutbox(remaining);
+    return remaining.length;
   }
 
   async function post(body) {
@@ -161,6 +217,7 @@
 
   async function startSession({ code, mode, pageGroup, sessionId, appVersion, baseline, headphoneType }) {
     const pendingCount = await flushOutbox(code);
+    if (pendingCount === 0) await flushPendingFinishes(code);
     const result = await post({
       action: "start_session",
       participantCode: code,
@@ -203,12 +260,18 @@
 
   async function finishSession({ code, sessionId }) {
     try {
-      await flushOutbox(code);
+      const pendingCount = await flushOutbox(code);
+      if (pendingCount > 0) {
+        queueFinish(sessionId);
+        setStatus(`未送信の回答が${pendingCount}件あります。通信が戻ったら「未送信データを再送」を押してください。全10問が届くまで完了扱いにしません。`, true);
+        return;
+      }
       await post({ action: "finish_session", participantCode: code, sessionId });
-      const pendingCount = readOutbox().length;
-      setStatus(pendingCount ? `終了を記録しました。未送信データが${pendingCount}件あります。` : "全10問のデータを送信しました。");
+      writeFinishOutbox(readFinishOutbox().filter((id) => id !== sessionId));
+      setStatus("全10問のデータを送信しました。");
     } catch (error) {
-      setStatus("終了記録を送信できませんでした。回答データは未送信のまま残る場合があります。", true);
+      queueFinish(sessionId);
+      setStatus("回答は端末に残っています。通信が戻ったら「未送信データを再送」を押してください。", true);
     }
   }
 
@@ -217,6 +280,7 @@
     if (!panel) return;
     const experience = document.querySelector("#experienceSurvey");
     const isEnrollmentPage = entryMode === "pretest";
+    enrollmentPage = isEnrollmentPage;
     if (experience) experience.hidden = !isEnrollmentPage;
     if (!enabled) {
       panel.hidden = false;
@@ -226,7 +290,13 @@
     const input = document.querySelector("#participantCode");
     const savedCode = getSavedParticipantCode();
     if (input && savedCode) input.value = savedCode;
-    panel.hidden = !isEnrollmentPage && Boolean(savedCode);
+    const hasPending = readOutbox().length > 0 || readFinishOutbox().length > 0;
+    panel.hidden = !isEnrollmentPage && Boolean(savedCode) && !hasPending;
+    if (hasPending && !isEnrollmentPage) {
+      if (input) input.hidden = true;
+      const codeLabel = panel.querySelector('label[for="participantCode"]');
+      if (codeLabel) codeLabel.hidden = true;
+    }
     if (isEnrollmentPage && savedCode) void restoreBaselineForm(savedCode);
     setStatus(isEnrollmentPage
       ? "参加コードと音楽経験を確認して、事前テストを開始してください。"
@@ -234,15 +304,19 @@
         ? "この端末に保存された参加コードで開始できます。"
         : "保存された参加コードがありません。事前テストで使ったコードを入力してください。入力後はこの端末に保存されます。");
     const retry = document.querySelector("#retryPilotUpload");
-    if (retry) retry.hidden = readOutbox().length === 0;
+    if (retry) retry.hidden = readOutbox().length === 0 && readFinishOutbox().length === 0;
     retry?.addEventListener("click", async () => {
       const code = getSavedParticipantCode() || input?.value.trim();
       if (!code) return setStatus("参加コードを入力してください。", true);
       retry.disabled = true;
       const count = await flushOutbox(code);
+      const finishCount = count === 0 ? await flushPendingFinishes(code) : readFinishOutbox().length;
       retry.disabled = false;
-      retry.hidden = count === 0;
-      setStatus(count ? `未送信データが${count}件あります。前回と同じ参加コードを確認してください。` : "未送信データを送信しました。");
+      retry.hidden = count === 0 && finishCount === 0;
+      setStatus(count
+        ? `未送信データが${count}件あります。通信が戻ったら再度送信してください。`
+        : (finishCount ? "回答データは送信済みです。終了記録を再送できませんでした。もう一度お試しください。" : "未送信データを送信しました。"), count > 0 || finishCount > 0);
+      if (count === 0 && finishCount === 0 && !enrollmentPage && panel) panel.hidden = true;
     });
   }
 

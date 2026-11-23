@@ -124,6 +124,37 @@ Deno.serve(async (request) => {
       if (typeof appVersion !== "string" || appVersion.length < 1 || appVersion.length > 80) return json({ error: "invalid_app_version" }, 400, cors);
       if (!["speaker", "wired", "bluetooth", "other"].includes(String(headphoneType))) return json({ error: "invalid_headphone_type" }, 400, cors);
 
+      // Reusing a session UUID is idempotent. The protocol allows two pretest sets,
+      // but only one posttest; starting a fresh UUID cannot bypass those limits.
+      if (mode === "pretest" || mode === "posttest") {
+        const { data: sameSession, error: sameSessionError } = await admin.from("study_sessions")
+          .select("id, session_number, assessment_wave")
+          .eq("id", sessionId).eq("participant_id", participant.id).eq("mode", mode).maybeSingle();
+        if (sameSessionError) return json({ error: "assessment_lookup_failed" }, 500, cors);
+        if (sameSession) {
+          const { data: priorAssignment, error: priorAssignmentError } = await admin.from("randomization_assignments")
+            .select("assigned_group").eq("participant_id", participant.id).maybeSingle();
+          if (priorAssignmentError) return json({ error: "assignment_lookup_failed" }, 500, cors);
+          return json({
+            sessionId: sameSession.id,
+            assignedGroup: priorAssignment?.assigned_group ?? null,
+            sessionNumber: sameSession.session_number,
+            assessmentWave: sameSession.assessment_wave,
+          }, 200, cors);
+        }
+        const { data: priorSessions, error: priorSessionError } = await admin.from("study_sessions")
+          .select("session_number")
+          .eq("participant_id", participant.id).eq("mode", mode)
+          .order("session_number", { ascending: false }).limit(1);
+        if (priorSessionError) return json({ error: "assessment_lookup_failed" }, 500, cors);
+        const { count: completedCount, error: completedCountError } = await admin.from("study_sessions")
+          .select("id", { count: "exact", head: true })
+          .eq("participant_id", participant.id).eq("mode", mode).not("completed_at", "is", null);
+        if (completedCountError) return json({ error: "assessment_lookup_failed" }, 500, cors);
+        if (mode === "pretest" && (completedCount || 0) >= 2) return json({ error: "pretest_limit_reached" }, 409, cors);
+        if (mode === "posttest" && (completedCount || 0) >= 1) return json({ error: "posttest_already_submitted" }, 409, cors);
+      }
+
       const { data: storedBaseline, error: baselineReadError } = await admin.from("participant_baseline_v3")
         .select("participant_id").eq("participant_id", participant.id).maybeSingle();
       if (baselineReadError) return json({ error: "baseline_read_failed" }, 500, cors);
@@ -178,12 +209,14 @@ Deno.serve(async (request) => {
       if (!validUuid(sessionId) || !Number.isInteger(questionNumber) || Number(questionNumber) < 1 || Number(questionNumber) > 10 || !trial) {
         return json({ error: "invalid_trial" }, 400, cors);
       }
-      const { data: session } = await admin.from("study_sessions")
-        .select("id")
+      const { data: session, error: sessionReadError } = await admin.from("study_sessions")
+        .select("id, completed_at")
         .eq("id", sessionId)
         .eq("participant_id", participant.id)
         .maybeSingle();
+      if (sessionReadError) return json({ error: "session_lookup_failed" }, 500, cors);
       if (!session) return json({ error: "session_not_found" }, 403, cors);
+      if (session.completed_at) return json({ error: "session_already_completed" }, 409, cors);
 
       const referenceMidi = trial.referenceMidi;
       const targetMidi = trial.targetMidi;
@@ -245,6 +278,30 @@ Deno.serve(async (request) => {
     if (action === "finish_session") {
       const sessionId = requestBody.sessionId;
       if (!validUuid(sessionId)) return json({ error: "invalid_session" }, 400, cors);
+      const { data: session, error: sessionReadError } = await admin.from("study_sessions")
+        .select("id, mode, completed_at")
+        .eq("id", sessionId).eq("participant_id", participant.id).maybeSingle();
+      if (sessionReadError) return json({ error: "session_lookup_failed" }, 500, cors);
+      if (!session) return json({ error: "session_not_found" }, 403, cors);
+      if (session.completed_at) return json({ saved: true }, 200, cors);
+      const { count: trialCount, error: trialCountError } = await admin.from("study_trials")
+        .select("id", { count: "exact", head: true }).eq("session_id", sessionId);
+      if (trialCountError) return json({ error: "trial_count_failed" }, 500, cors);
+      if (trialCount !== 10) return json({ error: "session_incomplete" }, 409, cors);
+      if (session.mode === "posttest") {
+        const { count: completedPosttests, error: posttestCountError } = await admin.from("study_sessions")
+          .select("id", { count: "exact", head: true })
+          .eq("participant_id", participant.id).eq("mode", "posttest").not("completed_at", "is", null);
+        if (posttestCountError) return json({ error: "assessment_lookup_failed" }, 500, cors);
+        if ((completedPosttests || 0) >= 1) return json({ error: "posttest_already_submitted" }, 409, cors);
+      }
+      if (session.mode === "pretest") {
+        const { count: completedPretests, error: pretestCountError } = await admin.from("study_sessions")
+          .select("id", { count: "exact", head: true })
+          .eq("participant_id", participant.id).eq("mode", "pretest").not("completed_at", "is", null);
+        if (pretestCountError) return json({ error: "assessment_lookup_failed" }, 500, cors);
+        if ((completedPretests || 0) >= 2) return json({ error: "pretest_limit_reached" }, 409, cors);
+      }
       const { error: finishError } = await admin.from("study_sessions").update({ completed_at: new Date().toISOString() })
         .eq("id", sessionId).eq("participant_id", participant.id);
       if (finishError) return json({ error: "session_finish_failed" }, 500, cors);

@@ -21,21 +21,32 @@ def make_code() -> str:
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--count", type=int, default=114)
+    parser.add_argument("--class-sizes", default="21,23,24,24,22", help="pseudo-seat counts per class, comma-separated")
     parser.add_argument("--csv", default="classroom_codes_private.csv")
     parser.add_argument("--sql", default="classroom_participants_seed.sql")
     args = parser.parse_args()
-    if not 4 <= args.count <= 500:
-        parser.error("--count must be between 4 and 500")
+    try:
+        class_sizes = [int(value) for value in args.class_sizes.split(",")]
+    except ValueError:
+        parser.error("--class-sizes must be comma-separated positive integers")
+    if not class_sizes or any(size < 1 for size in class_sizes):
+        parser.error("--class-sizes must be comma-separated positive integers")
+    if not 4 <= args.count <= min(500, sum(class_sizes)):
+        parser.error("--count must be between 4 and the total class size")
     pepper = os.environ.get("CLASSROOM_CODE_PEPPER")
     if pepper is None:
         pepper = getpass.getpass("Enter the same private CLASSROOM_CODE_PEPPER set in the classroom project: ")
     if len(pepper) < 32:
         parser.error("Use a random pepper of at least 32 characters")
 
-    rows = [(str(uuid.uuid4()), make_code()) for _ in range(args.count)]
+    pseudo_seats = [f"{class_no:02d}_{seat_no:02d}"
+                    for class_no, size in enumerate(class_sizes, start=1)
+                    for seat_no in range(1, size + 1)]
+    secrets.SystemRandom().shuffle(pseudo_seats)
+    rows = [(pseudo_seats[i], str(uuid.uuid4()), make_code()) for i in range(args.count)]
     hashes = [
         (participant_id, hmac.new(pepper.encode(), code.replace("-", "").encode(), "sha256").hexdigest())
-        for participant_id, code in rows
+        for _pseudo_seat, participant_id, code in rows
     ]
     csv_path, sql_path = Path(args.csv), Path(args.sql)
     for path in (csv_path, sql_path):
@@ -44,8 +55,8 @@ def main() -> None:
 
     with csv_path.open("w", newline="", encoding="utf-8") as handle:
         writer = csv.writer(handle)
-        writer.writerow(("attendance_number_private", "participant_id", "participant_code"))
-        writer.writerows(("", participant_id, code) for participant_id, code in rows)
+        writer.writerow(("pseudo_seat_private", "participant_id", "participant_code"))
+        writer.writerows(rows)
 
     values = ",\n".join(f"  ('{pid}', '{digest}')" for pid, digest in hashes)
     sql_path.write_text(

@@ -8,6 +8,8 @@ select
   b3.primary_instrument_family,
   b3.instrument_pitch_control,
   b3.wind_band_member,
+  b3.music_club_experience,
+  b3.music_club_experience_captured_at,
   b3.absolute_pitch_self_report,
   b3.other_pitch_app_experience,
   b3.relative_pitch_rating,
@@ -67,6 +69,7 @@ select
   b3.music_experience_duration,
   b3.primary_instrument_family,
   b3.instrument_pitch_control,
+  b3.music_club_experience,
   s.assigned_group,
   s.mode,
   s.session_number,
@@ -85,6 +88,7 @@ left join public.participant_baseline_v3 b3 on b3.participant_id = p.id
 left join public.study_trials t on t.session_id = s.id
 group by p.id, p.pilot_batch, b3.music_experience_band, b.music_experience_band,
   b3.music_experience_duration, b3.primary_instrument_family, b3.instrument_pitch_control,
+  b3.music_club_experience,
   s.assigned_group, s.mode, s.session_number, s.assessment_wave
 order by s.assigned_group, music_experience_band, p.id, s.mode, s.session_number;
 
@@ -97,6 +101,7 @@ with person_mode as (
     b3.music_experience_duration,
     b3.primary_instrument_family,
     b3.instrument_pitch_control,
+    b3.music_club_experience,
     s.assigned_group,
     s.mode,
     s.session_number,
@@ -108,6 +113,7 @@ with person_mode as (
   join public.study_trials t on t.session_id = s.id
   group by p.id, p.pilot_batch, b3.music_experience_band, b.music_experience_band,
     b3.music_experience_duration, b3.primary_instrument_family, b3.instrument_pitch_control,
+    b3.music_club_experience,
     s.assigned_group, s.mode, s.session_number
 )
 select
@@ -117,11 +123,12 @@ select
   music_experience_duration,
   primary_instrument_family,
   instrument_pitch_control,
+  music_club_experience,
   assigned_group,
   max(mean_absolute_error_semitones) filter (where mode = 'pretest' and session_number = 1) as pretest_1_mae_semitones,
   max(mean_absolute_error_semitones) filter (where mode = 'pretest' and session_number = 2) as pretest_2_mae_semitones,
   max(mean_absolute_error_semitones) filter (where mode = 'posttest' and session_number = 1) as posttest_1_mae_semitones
 from person_mode
 group by participant_id, pilot_batch, music_experience_band, music_experience_duration,
-  primary_instrument_family, instrument_pitch_control, assigned_group
+  primary_instrument_family, instrument_pitch_control, music_club_experience, assigned_group
 order by assigned_group, music_experience_band, participant_id;

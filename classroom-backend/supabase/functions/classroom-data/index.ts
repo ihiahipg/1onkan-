@@ -64,21 +64,26 @@ function parseBaseline(value: unknown): { fields: Record<string, unknown>; answe
     q4: ["major_third", "minor_third", "perfect_fourth", "major_second", "dont_know"],
     q5: ["major_sixth", "minor_sixth", "perfect_fifth", "major_seventh", "dont_know"],
   };
+  const currentSurvey = b.surveyVersion === "classroom-baseline-v6";
+  const legacySurvey = b.surveyVersion === "classroom-baseline-v5";
   if (!durations.includes(String(b.musicExperienceDuration)) ||
       !Object.hasOwn(familyControls, String(b.primaryInstrument)) ||
-      typeof b.windBandMember !== "boolean" ||
+      (currentSurvey ? typeof b.musicClubExperience !== "boolean" :
+        legacySurvey ? typeof b.windBandMember !== "boolean" : true) ||
       !["yes", "no", "unsure"].includes(String(b.absolutePitchSelfReport)) ||
       typeof b.otherPitchAppExperience !== "boolean" ||
       !Number.isInteger(b.relativePitchRating) || Number(b.relativePitchRating) < 1 || Number(b.relativePitchRating) > 5 ||
       !quiz || Object.keys(answerKey).some((key) => typeof quiz[key] !== "string" || !answerOptions[key].includes(String(quiz[key]))) ||
-      b.surveyVersion !== "classroom-baseline-v5") return null;
+      (!currentSurvey && !legacySurvey)) return null;
   return {
     fields: {
       music_experience_duration: b.musicExperienceDuration,
       music_experience_band: bandByDuration[String(b.musicExperienceDuration)],
       primary_instrument_family: b.primaryInstrument,
       instrument_pitch_control: familyControls[String(b.primaryInstrument)],
-      wind_band_member: b.windBandMember,
+      wind_band_member: legacySurvey ? b.windBandMember : null,
+      music_club_experience: currentSurvey ? b.musicClubExperience : null,
+      music_club_experience_captured_at: currentSurvey ? new Date().toISOString() : null,
       absolute_pitch_self_report: b.absolutePitchSelfReport,
       other_pitch_app_experience: b.otherPitchAppExperience,
       relative_pitch_rating: b.relativePitchRating,
@@ -169,6 +174,12 @@ Deno.serve(async (request) => {
             .select("participant_id").eq("participant_id", participant.id).maybeSingle();
           if (!racedBaseline) return json({ error: "baseline_save_failed" }, 500, cors);
         }
+      } else if (parsedBaseline && parsedBaseline.fields.music_club_experience !== null) {
+        const { error } = await admin.from("participant_baseline_v3").update({
+          music_club_experience: parsedBaseline.fields.music_club_experience,
+          music_club_experience_captured_at: parsedBaseline.fields.music_club_experience_captured_at,
+        }).eq("participant_id", participant.id);
+        if (error) return json({ error: "club_experience_save_failed" }, 500, cors);
       }
       if (parsedBaseline) {
         const answerRows = parsedBaseline.answers.map((answer) => ({ participant_id: participant.id, ...answer }));

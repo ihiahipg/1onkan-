@@ -399,8 +399,8 @@ h1 {
                 <option value="other">その他</option>
               </select>
             </label>
-            <label for="windBandMember">吹奏楽部に所属した経験
-              <select id="windBandMember" required><option value="">選択してください</option><option value="false">ない</option><option value="true">ある</option></select>
+            <label for="musicClubExperience">音楽系の部活動（吹奏楽部・合唱部・軽音楽部・オーケストラ部など）に所属した経験
+              <select id="musicClubExperience" required><option value="">選択してください</option><option value="false">ない</option><option value="true">ある</option></select>
             </label>
           </div>
           <div class="survey-section">
@@ -585,7 +585,7 @@ const el = {
   headphoneType: document.querySelector("#headphoneType"),
   musicExperienceDuration: document.querySelector("#musicExperienceDuration"),
   primaryInstrument: document.querySelector("#primaryInstrument"),
-  windBandMember: document.querySelector("#windBandMember"),
+  musicClubExperience: document.querySelector("#musicClubExperience"),
   absolutePitchSelfReport: document.querySelector("#absolutePitchSelfReport"),
   relativePitchRating: document.querySelector("#relativePitchRating"),
   knowledgeQ1: document.querySelector("#knowledgeQ1"),
@@ -1149,7 +1149,7 @@ function createPilotUuid() {
 
 function collectBaseline() {
   if (STUDY_MODE !== "pretest") return null;
-  const requiredSurvey = [el.musicExperienceDuration, el.primaryInstrument, el.windBandMember,
+  const requiredSurvey = [el.musicExperienceDuration, el.primaryInstrument, el.musicClubExperience,
     el.otherPitchAppExperience, el.absolutePitchSelfReport, el.relativePitchRating,
     el.knowledgeQ1, el.knowledgeQ2, el.knowledgeQ3, el.knowledgeQ4, el.knowledgeQ5];
   const missing = requiredSurvey.find((field) => !field?.value);
@@ -1162,12 +1162,12 @@ function collectBaseline() {
     musicExperienceDuration: el.musicExperienceDuration.value,
     primaryInstrument: el.primaryInstrument.value,
     instrumentPitchControl: instrumentPitchControlFor(el.primaryInstrument.value),
-    windBandMember: el.windBandMember.value === "true",
+    musicClubExperience: el.musicClubExperience.value === "true",
     absolutePitchSelfReport: el.absolutePitchSelfReport.value,
     otherPitchAppExperience: el.otherPitchAppExperience.value === "true",
     relativePitchRating: Number(el.relativePitchRating.value),
     knowledgeQuiz: { q1: el.knowledgeQ1.value, q2: el.knowledgeQ2.value, q3: el.knowledgeQ3.value, q4: el.knowledgeQ4.value, q5: el.knowledgeQ5.value },
-    surveyVersion: "classroom-baseline-v5",
+    surveyVersion: "classroom-baseline-v6",
   };
 }
 

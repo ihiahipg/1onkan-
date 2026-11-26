@@ -9,6 +9,8 @@ select
   b.primary_instrument_family,
   b.instrument_pitch_control,
   b.wind_band_member,
+  b.music_club_experience,
+  b.music_club_experience_captured_at,
   b.absolute_pitch_self_report,
   b.other_pitch_app_experience,
   b.relative_pitch_rating,
@@ -25,6 +27,7 @@ left join public.participant_knowledge_answers_v3 a on a.participant_id = p.id
 where p.active = true
 group by p.id, p.pilot_batch, p.assigned_group, b.survey_version, b.music_experience_duration,
   b.music_experience_band, b.primary_instrument_family, b.instrument_pitch_control,
-  b.wind_band_member, b.absolute_pitch_self_report, b.other_pitch_app_experience,
+  b.wind_band_member, b.music_club_experience, b.music_club_experience_captured_at,
+  b.absolute_pitch_self_report, b.other_pitch_app_experience,
   b.relative_pitch_rating, b.captured_at
 order by p.assigned_group, b.music_experience_band, p.id;

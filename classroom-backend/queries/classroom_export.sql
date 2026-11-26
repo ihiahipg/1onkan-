@@ -6,6 +6,8 @@ select
   b.primary_instrument_family,
   b.instrument_pitch_control,
   b.wind_band_member,
+  b.music_club_experience,
+  b.music_club_experience_captured_at,
   b.absolute_pitch_self_report,
   b.other_pitch_app_experience,
   b.relative_pitch_rating,
